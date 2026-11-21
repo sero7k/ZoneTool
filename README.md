@@ -33,6 +33,13 @@ Check out the [Aurora Zonetool Basics](https://docs.auroramod.dev/zonetool-basic
   * `skip common`: Skips common zones when dumping a map, can be `true` or `false`.
   * `target game`: The game to convert the assets to.
 
+## ACTS bridge (BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6, BO7)
+ZoneTool can run [atian-cod-tools](https://github.com/ate47/atian-cod-tools) (vendored in `deps/atian-cod-tools`) for games without an in-process module, plus the ACTS linkers, GSC and hash tools:
+* `zonetool -dumpzone <game> <zone>`: `bo3`, `bo4`, `cw`, `mw19`, `vg`, `mwii`, `mwiisp`, `mwiii`, `mwiiisp`, `bo6`, `bo6sp`, `bo7`
+* `zonetool -linkzone <bo3|bo4|cw> <dir>`, `-gscdecompile`, `-gsccompile`, `-hashlookup`, `-acts <raw args>`
+
+See [docs/acts-integration.md](docs/acts-integration.md) and [docs/bo3-support.md](docs/bo3-support.md).
+
 ## Asset Conversion Support
 
 The table below shows which asset conversions are currently supported.
