@@ -6,6 +6,9 @@
 #include "converter/converter.hpp"
 
 #include "common/xpak.hpp"
+#include "common/fastfile.hpp"
+
+#include "acts/acts_bridge.hpp"
 
 namespace zonetool::t7
 {
@@ -136,11 +139,20 @@ namespace zonetool::t7
 			converter::h1::__namespace__::dump(asset_ptr); \
 		}
 
+		if (asset->type == ASSET_TYPE_XMODEL)
+		{
+			// materials used by xmodels get H1 model techsets (see converter::h1::material::flush)
+			converter::h1::material::note_model_materials(reinterpret_cast<XModel*>(asset->header.data));
+		}
+
 		try
 		{
+			DUMP_ASSET_CONVERT(ASSET_TYPE_IMAGE, gfximage, GfxImage);
+			DUMP_ASSET_CONVERT(ASSET_TYPE_MATERIAL, material, Material);
 			DUMP_ASSET_CONVERT(ASSET_TYPE_XANIMPARTS, xanim, XAnimParts);
 			DUMP_ASSET_CONVERT(ASSET_TYPE_XMODEL, xmodel, XModel);
 			DUMP_ASSET_CONVERT(ASSET_TYPE_XMODELMESH, xmodel_mesh, XModelMesh);
+			// TODO (bo3 -> h1): clipmap, comworld, gfxworld, mapents, weapon/attachment, fx, sound
 		}
 		catch (const std::exception& e)
 		{
@@ -209,6 +221,8 @@ namespace zonetool::t7
 		try
 		{
 			// dump assets
+			DUMP_ASSET(ASSET_TYPE_IMAGE, gfx_image, GfxImage);
+			DUMP_ASSET(ASSET_TYPE_MATERIAL, material, Material);
 			//DUMP_ASSET(ASSET_TYPE_XMODEL, xmodel, XModel);
 		}
 		catch (const std::exception& e)
@@ -338,6 +352,12 @@ namespace zonetool::t7
 		}
 
 		dump_refs();
+
+		if (globals.target_game == game::h1)
+		{
+			// materials are written last, once every xmodel of the zone has been seen
+			converter::h1::material::flush();
+		}
 
 		ZONETOOL_INFO("Zone \"%s\" dumped.", filesystem::get_fastfile().data());
 
@@ -709,6 +729,29 @@ namespace zonetool::t7
 			verify_zone(params.get(1));
 		});
 
+		::t7::command::add("ffinfo", [](const ::t7::command::params& params)
+		{
+			if (params.size() < 2)
+			{
+				ZONETOOL_ERROR("usage: ffinfo <zone|path.ff> [dump decompressed (true/false)]");
+				return;
+			}
+
+			const auto dump_decompressed = params.size() >= 3 && params.get(2) == "true"s;
+			fastfile::print_info(params.get(1), dump_decompressed);
+		});
+
+		::t7::command::add("acts", [](const ::t7::command::params& params)
+		{
+			std::vector<std::string> args;
+			for (auto i = 1; i < params.size(); i++)
+			{
+				args.emplace_back(params.get(i));
+			}
+
+			::acts::run_console_command(args);
+		});
+
 		::t7::command::add("iteratezones", []()
 		{
 			iterate_zones();
@@ -758,7 +801,39 @@ namespace zonetool::t7
 					}
 					else if (args[i] == "-dumpzone")
 					{
-						dump_zone(args[i + 1], game::t7);
+						// -dumpzone <zone>  or  -dumpzone <target game> <zone> [asset filter]
+						const auto target = game::get_mode_from_string(args[i + 1]);
+						if (target != game::none && dump_functions.contains(target) && i + 2 < args.size())
+						{
+							asset_type_filter.clear();
+							if (i + 3 < args.size() && args[i + 3][0] != '-')
+							{
+								for (const auto& type_str : utils::string::split(args[i + 3], ','))
+								{
+									const auto type = type_to_int(type_str);
+									if (type >= 0)
+									{
+										asset_type_filter.insert(static_cast<XAssetType>(type));
+									}
+								}
+								dump_zone(args[i + 2], target);
+								i += 3;
+							}
+							else
+							{
+								dump_zone(args[i + 2], target);
+								i += 2;
+							}
+						}
+						else
+						{
+							dump_zone(args[i + 1], game::t7);
+							i++;
+						}
+					}
+					else if (args[i] == "-ffinfo")
+					{
+						fastfile::print_info(args[i + 1], true);
 						i++;
 					}
 				}
