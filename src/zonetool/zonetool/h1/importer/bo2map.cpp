@@ -606,8 +606,9 @@ namespace zonetool::h1::importer
 				}
 			}
 
-			// BO2_COL_COMPACT: keep only the materials that still own triangles
-			if (std::getenv("BO2_COL_COMPACT") && !b.tris.empty())
+			// Keep only the materials that still own triangles: unused clip materials freeze the H1 server
+			// (match clock and team select stop), seen on mp_carrier with 441 materials of which 91 had no triangles.
+			if (!std::getenv("BO2_COL_NO_COMPACT") && !b.tris.empty())
 			{
 				std::vector<int> remap(mat_names.size(), -1);
 				std::vector<std::string> kept;

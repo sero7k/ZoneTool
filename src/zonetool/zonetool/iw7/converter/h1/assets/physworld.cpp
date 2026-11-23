@@ -431,7 +431,8 @@ namespace zonetool::iw7
 
 				bool is_script_brushmodel_partition(zonetool::h1::clipMap_t* asset, zonetool::h1::CollisionPartition* partition)
 				{
-					for (auto i = 0u; i < asset->numSubModels; i++)
+					// cmodel 0 is the world itself: only submodels are script brushmodels
+					for (auto i = 1u; i < asset->numSubModels; i++)
 					{
 						const auto cmodel = &asset->cmodels[i];
 						for (auto o = 0u; o < cmodel->leaf.collAabbCount; o++)
