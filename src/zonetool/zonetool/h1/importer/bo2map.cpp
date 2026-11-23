@@ -594,6 +594,32 @@ namespace zonetool::h1::importer
 				}
 			}
 
+			// full extent of the solid world before the budget, used by BO2_COL_BOUNDS
+			float full_mn[3] = {FLT_MAX, FLT_MAX, FLT_MAX}, full_mx[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+			for (const auto& v : in.vertices)
+			{
+				for (int k = 0; k < 3; k++)
+				{
+					if (std::fabs(v.xyz[k]) > 60000.0f) continue;
+					full_mn[k] = std::min(full_mn[k], v.xyz[k]);
+					full_mx[k] = std::max(full_mx[k], v.xyz[k]);
+				}
+			}
+
+			// BO2_COL_COMPACT: keep only the materials that still own triangles
+			if (std::getenv("BO2_COL_COMPACT") && !b.tris.empty())
+			{
+				std::vector<int> remap(mat_names.size(), -1);
+				std::vector<std::string> kept;
+				for (auto& t : b.tris)
+				{
+					if (remap[t.mat] < 0) { remap[t.mat] = static_cast<int>(kept.size()); kept.push_back(mat_names[t.mat]); }
+					t.mat = static_cast<unsigned int>(remap[t.mat]);
+				}
+				ZONETOOL_INFO("collision materials compacted: %llu -> %llu", static_cast<unsigned long long>(mat_names.size()), static_cast<unsigned long long>(kept.size()));
+				mat_names.swap(kept);
+			}
+
 			std::vector<std::vector<unsigned int>> groups(mat_names.size());
 			for (unsigned int i = 0; i < b.tris.size(); i++) groups[b.tris[i].mat].push_back(i);
 			std::vector<unsigned int> used;
@@ -660,6 +686,15 @@ namespace zonetool::h1::importer
 				b.partitions.push_back(p);
 				b.verts = {0, 0, 0};
 				b.tri_indices = {};
+			}
+			if (std::getenv("BO2_COL_BOUNDS"))
+			{
+				for (int k = 0; k < 3; k++)
+				{
+					wmn[k] = std::min(wmn[k], full_mn[k] - 256.0f);
+					wmx[k] = std::max(wmx[k], full_mx[k] + 256.0f);
+				}
+				ZONETOOL_INFO("collision world bounds: %f %f %f .. %f %f %f", wmn[0], wmn[1], wmn[2], wmx[0], wmx[1], wmx[2]);
 			}
 			for (int k = 0; k < 3; k++)
 			{
