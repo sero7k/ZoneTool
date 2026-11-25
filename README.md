@@ -1,88 +1,98 @@
 # x64 ZoneTool
-A fastfile unlinker and linker for various x64 Call of Duty titles. 
 
-- If you are interested in porting maps or assets from IW3/4/5, check <b>[Aurora's Map Porting IW3/4/5 -> H1](https://docs.auroramod.dev/map-porting-iw5)</b>
-- If you are interested in porting maps or assets from newer Call of Duty games like H1, S1, H1, H2, or IW7, between each other, check <b>[Aurora's Map Porting (S1 <-> H1 <-> H2)](https://docs.auroramod.dev/map-porting-s1)</b>
+x64-zt is a standalone fastfile unlinker and linker for x64 Call of Duty titles. x64-zt can link, unlink, and convert assets between games with accurate conversions for the source & target engines in mind.
 
-## Supported Games
-Two code lines live in this repo:
+> [!WARNING]
+> `main` contains the legacy x64-zt code. x64-zt 2 is a heavy rework of that code here on `develop`, and is pending release. [Pre-build releases](https://github.com/auroramod/x64-zt/releases/tag/develop-latest) contain x64-zt 2, but it is not guaranteed to work good yet.
 
-- **`main` (v1)**: hooks the running game exe. Has the Black Ops III dumper and our IW7 -> H1 map port work.
-- **[`v2`](https://github.com/sero7k/ZoneTool/tree/v2)**: Joelrau's rewrite of x64-zt that reads fastfiles directly and never loads the game exe. Adds WWII (S2) and Modern Warfare 2019 (IW8). Black Ops III is not ported to it yet.
+## Supported games
 
-| Game | `main` (v1) | `v2` |
-|---|:-:|:-:|
-| **IW6** (*Call of Duty: Ghosts*) | yes | yes |
-| **S1** (*Call of Duty: Advanced Warfare*) | yes | yes |
-| **H1** (*Call of Duty: Modern Warfare Remastered*) | yes | yes |
-| **H2** (*Call of Duty: Modern Warfare 2 Campaign Remastered*) | yes | yes |
-| **IW7** (*Call of Duty: Infinite Warfare*) | yes, with our map-port converter | yes |
-| **T7** (*Call of Duty: Black Ops 3*) | dumping only | no |
-| **S2** (*Call of Duty: WWII*) | no | yes |
-| **IW8** (*Call of Duty: Modern Warfare 2019, 1.20*) | no | yes |
-| **T6** (*Call of Duty: Black Ops II*) | map import only (see below) | no |
+| Codename | Game |
+|---|---|
+| **IW3** | Call of Duty 4: Modern Warfare *(dumping)* |
+| **IW4** | Modern Warfare 2 *(dumping)* |
+| **IW5** | Modern Warfare 3 *(dumping)* |
+| **IW6** | Ghosts |
+| **S1** | Advanced Warfare |
+| **H1** | Modern Warfare Remastered |
+| **H2** | Modern Warfare 2 Campaign Remastered |
+| **S2** | WWII |
+| **IW7** | Infinite Warfare |
+| **IW8** | Modern Warfare (2019) |
 
-## How to use
-Check out the [Aurora Zonetool Basics](https://docs.auroramod.dev/zonetool-basics) for useful guides & information on how to port maps and use zonetool.
+## Asset conversion
 
-## Commands
-* `loadzone <zone>`: Loads a zone
-* `unloadzones`: Unloads zones
-* `verifyzone <zone>`: Lists assets in a zone
-* `dumpzone <zone>`: Dumps a zone
-* `dumpzone <target game> <zone> <asset filter>`: Dumps a zone converting assets for a specific game
-* `dumpasset <type> <name>`: Dumps a single assset
-* `dumpmap <map>`: Dumps all required assets for a map
-* `dumpmap <target game> <map> <asset filter> <skip common>`: Dumps and converts all required assets for a map
-* `importmap <file.h1map> [name]`: Imports a Black Ops II map (exported by CodLegacy's `bo2_h1_export`) as H1 map assets (H1 module)
+Rows are the source game. Columns are the `--target` game.
 
-  ### Definitions
-  * `asset filter`: A filter specifying all the asset types that should be dumped, if not specified or empty it will dump all asset types.
-  Asset types are separated by **commas**, **`_`** indicates and empty filter.   
-    * Example: `dumpzone h1 mp_clowntown3 sound,material,techset,rawfile`
-    * Example: `dumpmap h1 mp_clowntown3 _ true`
-  * `skip common`: Skips common zones when dumping a map, can be `true` or `false`.
-  * `target game`: The game to convert the assets to.
+| From ↓ / To → | IW6 | S1 | H1 | H2 | S2 | IW7 | IW8 |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| **IW3** | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | ✅ | ❔ |
+| **IW4** | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | ❔ |
+| **IW5** | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | ⚠️ | ❔ |
+| **IW6** | ✅ | ❌ | ✅ | ❔ | ❔ | ❌ | ❌ |
+| **S1**  | ❌ | ✅ | ✅ | ✅ | ⚠️ | ❌ | ❌ |
+| **H1**  | ❌ | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
+| **H2**  | ❌ | ❌ | ✅ | ✅ | ❔ | ❌ | ❌ |
+| **S2**  | ❌ | ❌ | ⚠️ | ❔ | ✅ | ❌ | ❌ |
+| **IW7** | ❌ | ❌ | ⚠️ | ❌ | ❌ | ✅ | ⚠️ |
+| **IW8** | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ | ✅ |
 
-## Asset Conversion Support
+| | Status | Meaning |
+|:-:|---|---|
+| ✅ | **Supported** | Works for the assets of this game pair |
+| ⚠️ | **Partial** | Experimental or unfinished (some assets may work like weapons) |
+| ❔ | **Possible** | Can be achieved via alternative conversions (like `IW5 -> IW7 -> IW8`) |
+| 🚧 | **Planned** | x86 games from Joelrau/zonetool for dumping only |
+| ❌ | **Not supported** | No conversion |
 
-The tables below show which asset conversions are currently supported.
+The [x64-zt documentation](https://docs.auroramod.dev/x64-zt#game-conversion-support) has more information about conversion if you're interested.
 
-- **Rows** = Source game
-- **Columns** = Target game
+## Quick start
 
-Legend:
-- ✔️ Fully supported
-- ⚠️ Partially supported (experimental)
-- ❌ Not supported
+1. Put `zonetool.exe` in the game folder, next to the game exe. x64-zt selects the game automatically.
+2. Dump a zone:
 
-### `main` (v1)
+   ```bash
+   zonetool.exe dumpzone mp_shipment
+   ```
 
-| **From ↓ / To →** | **IW6** | **S1** | **H1** | **H2** | **T7** | **IW7** |
-|-------------------|:-------:|:------:|:------:|:------:|:------:|:-------:|
-| **IW6** | ✔️ | ❌ | ✔️ | ✔️ | ❌ | ❌ |
-| **S1**  | ❌ | ✔️ | ✔️ | ✔️ | ❌ | ❌ |
-| **H1**  | ❌ | ⚠️ | ✔️ | ✔️ | ❌ | ⚠️ |
-| **H2**  | ❌ | ❌ | ✔️ | ✔️ | ❌ | ❌ |
-| **T7**  | ❌ | ❌ | ⚠️ | ❌ | ✔️ | ⚠️ |
-| **IW7** | ❌ | ❌ | ⚠️ | ❌ | ❌ | ✔️ |
-| **T6 (BO2)** | ❌ | ❌ | ⚠️ | ❌ | ❌ | ❌ |
+   The assets and `mp_shipment.csv` go to `dump/mp_shipment/`.
+3. Put the asset files in `zonetool/<name>/` and the asset list (source CSV for your mod/map) in `zone_source/<name>.csv`. A dump CSV is a good start, or `generatecsv` command for maps. Then build:
 
-- **IW7 -> H1** is our map port: world, collision, map entities, materials, models, reflection probes and effects (used for `mp_flip`). Lighting, sun shadows and mirror-glass reflections are still approximate.
-- **T6 (BO2) -> H1** is `importmap <file.h1map> [name]`, a map-only import. It reads the neutral `.h1map` and `.ents` files that the CodLegacy `bo2_h1_export` tool writes from a BO2 zone. Geometry and spawns only, textures are placeholders, and it is not yet verified in game. See [docs/BO2_IMPORT.md](docs/BO2_IMPORT.md).
+   ```bash
+   zonetool.exe buildzone <name>
+   ```
 
-### `v2`
+   The result is `zone/<name>.ff` in the game folder.
 
-| **From ↓ / To →** | **IW6** | **S1** | **H1** | **H2** | **S2** | **IW7** | **IW8** |
-|-------------------|:-------:|:------:|:------:|:------:|:------:|:-------:|:-------:|
-| **IW6** | ✔️ | ❌ | ✔️ | ❌ | ❌ | ❌ | ❌ |
-| **S1**  | ❌ | ✔️ | ✔️ | ✔️ | ⚠️ | ❌ | ❌ |
-| **H1**  | ❌ | ❌ | ✔️ | ✔️ | ⚠️ | ⚠️ | ❌ |
-| **H2**  | ❌ | ❌ | ✔️ | ✔️ | ❌ | ❌ | ❌ |
-| **S2**  | ❌ | ❌ | ⚠️ | ❌ | ✔️ | ❌ | ❌ |
-| **IW7** | ❌ | ❌ | ⚠️ | ❌ | ❌ | ✔️ | ⚠️ |
-| **IW8** | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ | ✔️ |
+> [!CAUTION]
+> `buildzone` replaces a zone that has the same name. Back up the stock zone first, or give your zone a new name.
 
-- The v2 rows are taken from the upstream x64-zt `v2` README. The IW7 <-> IW8 cells are our reading of the converters in `src/convert/iw7_iw8` and `iw8_iw7`, which upstream does not list.
-- **IW6 -> H2** and **H1 -> S1** are not offered on v2. Use `main` for IW6 -> H2.
-- Our IW7 -> H1 map port and the BO2 importer have not been moved to `v2` yet.
+The [x64-zt documentation](https://docs.auroramod.dev/x64-zt) has every command and option, conversion with `--target`, the folder layout and the common errors.
+
+## Building
+
+You can use `generate.bat`, which uses Visual Studio 2022/2026 and Windows to do so. You can supply specific games through the generate file to include games you're not actively working on:
+
+```bash
+generate.bat --games=h1,iw7
+```
+
+| Option | Effect |
+|---|---|
+| `--games=<list>` | Games to build: `all` (default), or a list such as `h1,s2,iw7` |
+| `--no-convert` | Skips the converter projects |
+| `--copy-to=<folder>` | Copies `zonetool.exe` to this folder after each build |
+
+Then open `build/x64-zt.sln`, or build Release x64 with MSBuild. The result is `build/bin/x64/Release/zonetool.exe`. A converter builds only when its source and target games are both selected.
+
+## Guides
+
+- [x64-zt](https://docs.auroramod.dev/x64-zt)
+- [Zonetool Extra](https://docs.auroramod.dev/zonetool-extra)
+- [Map porting IW3/4/5 → H1](https://docs.auroramod.dev/map-porting-iw5)
+- [Map porting S1 ↔ H1 ↔ H2](https://docs.auroramod.dev/map-porting-s1)
+- [Weapon porting H1 → S2](https://docs.auroramod.dev/h1-to-s2-weapon)
+- [Weapon porting IW7 → IW8](https://docs.auroramod.dev/iw7-to-iw8-weapon)
+
+If you get stuck, feel free to ask the community in the [Aurora Discord server](http://auroramod.dev/discord).
