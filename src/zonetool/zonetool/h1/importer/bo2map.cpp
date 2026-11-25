@@ -842,6 +842,40 @@ namespace zonetool::h1::importer
 			w->nodeCount = 1;
 			w->skyCount = 0;
 			w->skies = nullptr;
+			{
+				// The sky: surfaces of the material "bo2_sky" (a box the port script adds to the .h1map) drawn as H1's
+				// sky, its cube picture being the material's colour picture in the .mats.tsv (a donor map's sky).
+				std::vector<int> sky_surfs;
+				std::string sky_image;
+				float lo[3] = {FLT_MAX, FLT_MAX, FLT_MAX}, hi[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+				for (unsigned int p = 0; p < surface_count; p++)
+				{
+					const auto& s = in.surfaces[order[p]];
+					const auto& m = in.materials[s.material];
+					if (m.name != "bo2_sky") continue;
+					sky_surfs.push_back(static_cast<int>(p));
+					if (sky_image.empty()) sky_image = m.col;
+					for (int k = 0; k < 3; k++) { lo[k] = std::min(lo[k], s.mins[k]); hi[k] = std::max(hi[k], s.maxs[k]); }
+				}
+				if (!sky_surfs.empty() && !sky_image.empty())
+				{
+					w->skyCount = 1;
+					w->skies = allocator.allocate_array<zonetool::h1::GfxSky>(1);
+					auto& sky = w->skies[0];
+					sky.skySurfCount = static_cast<int>(sky_surfs.size());
+					sky.skyStartSurfs = allocator.allocate_array<int>(sky_surfs.size());
+					std::memcpy(sky.skyStartSurfs, sky_surfs.data(), sky_surfs.size() * sizeof(int));
+					sky.skyImage = allocator.allocate<zonetool::h1::GfxImage>();
+					sky.skyImage->name = allocator.duplicate_string(sky_image);
+					sky.skySamplerState = 243;
+					for (int k = 0; k < 3; k++)
+					{
+						sky.bounds.midPoint[k] = (lo[k] + hi[k]) * 0.5f;
+						sky.bounds.halfSize[k] = (hi[k] - lo[k]) * 0.5f;
+					}
+					ZONETOOL_INFO("importmap %s: sky of %d surfaces, picture %s", in.name.c_str(), sky.skySurfCount, sky_image.c_str());
+				}
+			}
 			w->lastSunPrimaryLightIndex = 0;
 			w->primaryLightCount = 1;
 			w->primaryLightEnvCount = 2;
