@@ -29,8 +29,8 @@
 // the collision (built from the same triangles, as the IW7 converter does),
 // the sun as the one primary light, the spawn and script entities, one
 // placeholder material per Black Ops II material.
-// What is STUBBED (as in the IW7 converter): lightmaps (one placeholder
-// image), reflection probes (one placeholder), light grid (flat, 1 node),
+// What is STUBBED (as in the IW7 converter): lightmaps (one placeholder pair, whose pixels the port script
+// fills, and the map's own coordinates when it writes <stem>.h1lmuv), reflection probes (one placeholder), light grid (flat, 1 node),
 // vis data (zeroed), sky (none), static models (none: they are in the world).
 // The BSP/cell structure is one cell with one aabb tree whose children are
 // 2048-unit grid cells of surfaces.
@@ -108,6 +108,7 @@ namespace zonetool::h1::importer
 			float tangent[4];
 			float uv[2];
 			unsigned char rgba[4];
+			float lmap[2] = {0.5f, 0.5f}; // H1 lightmap coordinate (<stem>.h1lmuv), else the centre
 		};
 
 		struct surface_in
@@ -194,6 +195,30 @@ namespace zonetool::h1::importer
 				for (auto& x : s.maxs) x = r.f();
 			}
 			return r.at <= bytes.size();
+		}
+
+		// The map's own lightmap coordinates (written with the lightmap images by the port script from the
+		// Black Ops II lightmap): "H1LMUV01", u32 count, then a u, v float pair per vertex of the .h1map in
+		// order. Vertices past the count (a sky box added later) keep the lightmap centre.
+		void read_lmuv(const std::string& path, map_in& m)
+		{
+			std::ifstream f(path, std::ios::binary);
+			if (!f) return;
+			const std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+			if (bytes.size() < 12 || std::memcmp(bytes.data(), "H1LMUV01", 8) != 0)
+			{
+				ZONETOOL_WARNING("importmap: %s is not an H1LMUV01 file", path.c_str());
+				return;
+			}
+			std::uint32_t n = 0;
+			std::memcpy(&n, bytes.data() + 8, 4);
+			n = std::min<std::uint32_t>(n, static_cast<std::uint32_t>((bytes.size() - 12) / 8));
+			n = std::min<std::uint32_t>(n, static_cast<std::uint32_t>(m.vertices.size()));
+			for (std::uint32_t i = 0; i < n; i++)
+			{
+				std::memcpy(m.vertices[i].lmap, bytes.data() + 12 + static_cast<size_t>(i) * 8, 8);
+			}
+			ZONETOOL_INFO("importmap: lightmap coordinates for %u of %zu vertices", n, m.vertices.size());
 		}
 
 		// ---- materials: one placeholder per Black Ops II material ----
@@ -1050,8 +1075,8 @@ namespace zonetool::h1::importer
 					for (int c = 0; c < 4; c++) dst.color.array[c] = src.rgba[c];
 					dst.texCoord[0] = src.uv[0];
 					dst.texCoord[1] = src.uv[1];
-					dst.lmapCoord[0] = 0.5f;
-					dst.lmapCoord[1] = 0.5f;
+					dst.lmapCoord[0] = src.lmap[0];
+					dst.lmapCoord[1] = src.lmap[1];
 					float n[3] = {src.normal[0], src.normal[1], src.normal[2]};
 					float t[3] = {src.tangent[0], src.tangent[1], src.tangent[2]};
 					dst.normal.packed = zonetool::PackedVec::Vec3PackUnitVec_H1(n);
@@ -1356,6 +1381,7 @@ namespace zonetool::h1::importer
 			const auto stem = h1map_path.substr(stem_start, (dot == std::string::npos || dot < stem_start ? h1map_path.size() : dot) - stem_start);
 			g_copied.clear();
 			read_mats_tsv(g_src_dir + stem + ".mats.tsv", in);
+			read_lmuv(g_src_dir + stem + ".h1lmuv", in);
 		}
 
 		// Drawn surfaces only (no sky, tool or water), sorted by category (opaque, decal, translucent).
