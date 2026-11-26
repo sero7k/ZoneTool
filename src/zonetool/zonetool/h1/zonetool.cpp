@@ -506,7 +506,18 @@ namespace zonetool::h1
 
 		if (is_referenced_asset(asset))
 		{
-			//referenced_assets.emplace_back(asset->type, get_asset_name(asset));
+			// ZT_DUMP_REFS=<text>: also dump the referenced assets whose name contains <text> (found in the
+			// already loaded zones once the dump ends, see dump_refs), e.g. a map's ocean material and techset.
+			static const std::string dump_refs_match = []
+			{
+				char buf[256]{};
+				const auto len = GetEnvironmentVariableA("ZT_DUMP_REFS", buf, sizeof(buf));
+				return len > 0 && len < sizeof(buf) ? std::string(buf, len) : std::string();
+			}();
+			if (!dump_refs_match.empty() && std::string(get_asset_name(asset)).find(dump_refs_match) != std::string::npos)
+			{
+				referenced_assets.emplace_back(asset->type, get_asset_name(asset));
+			}
 			return;
 		}
 
