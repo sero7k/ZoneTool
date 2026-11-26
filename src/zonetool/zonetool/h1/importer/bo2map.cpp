@@ -1,5 +1,6 @@
 #include <std_include.hpp>
 #include "bo2map.hpp"
+#include <array>
 
 #include "zonetool/h1/assets/gfxworld.hpp"
 #include "zonetool/h1/assets/clipmap.hpp"
@@ -13,7 +14,6 @@
 #include "zonetool/iw7/converter/h1/assets/physworld.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cfloat>
 #include <cstdlib>
 #include <cmath>
@@ -30,7 +30,7 @@
 // the sun as the one primary light, the spawn and script entities, one
 // placeholder material per Black Ops II material.
 // What is STUBBED (as in the IW7 converter): lightmaps (one placeholder pair, whose pixels the port script
-// fills, and the map's own coordinates when it writes <stem>.h1lmuv), reflection probes (one placeholder), light grid (flat, 1 node),
+// fills, and the map's own coordinates when it writes <stem>.h1lmuv), reflection probes (probe 0 map-wide plus <stem>.probes), light grid (flat, 1 node, colour from <stem>.grid),
 // vis data (zeroed), sky (none), static models (none: they are in the world).
 // The BSP/cell structure is one cell with one aabb tree whose children are
 // 2048-unit grid cells of surfaces.
@@ -131,7 +131,28 @@ namespace zonetool::h1::importer
 			std::vector<vertex_in> vertices;
 			std::vector<std::uint16_t> indices;
 			std::vector<surface_in> surfaces;
+			// <stem>.probes: one "x y z" line per Black Ops II reflection probe (probe images
+			// _reflection_probe1.. come with the lightmap); probe 0 stays the map-wide one.
+			std::vector<std::array<float, 3>> probes;
+			// <stem>.grid: "r g b" flat light grid colour for models (default 0.5 grey)
+			float grid[3] = {0.5f, 0.5f, 0.5f};
 		};
+
+		void read_probes_and_grid(const std::string& stem_path, map_in& m)
+		{
+			{
+				std::ifstream f(stem_path + ".probes");
+				float x, y, z;
+				while (f >> x >> y >> z) m.probes.push_back({x, y, z});
+				if (m.probes.size() > 200) m.probes.resize(200);
+				if (!m.probes.empty()) ZONETOOL_INFO("importmap: %zu reflection probes", m.probes.size());
+			}
+			{
+				std::ifstream f(stem_path + ".grid");
+				float r, g, b;
+				if (f >> r >> g >> b) { m.grid[0] = r; m.grid[1] = g; m.grid[2] = b; ZONETOOL_INFO("importmap: light grid colour %.3f %.3f %.3f", r, g, b); }
+			}
+		}
 
 		std::string safe_name(const std::string& in)
 		{
@@ -1017,12 +1038,22 @@ namespace zonetool::h1::importer
 			w->portalDistanceAnchorsAndCloseDistSquared = nullptr;
 
 			// Reflection probe and lightmap placeholders (images the port script copies in).
-			w->draw.reflectionProbeCount = 1;
-			w->draw.reflectionProbes = allocator.allocate_array<zonetool::h1::GfxImage*>(1);
-			w->draw.reflectionProbes[0] = allocator.allocate<zonetool::h1::GfxImage>();
-			w->draw.reflectionProbes[0]->name = allocator.duplicate_string("*reflection_probe0");
-			w->draw.reflectionProbeOrigins = allocator.allocate_array<zonetool::h1::GfxReflectionProbe>(1);
-			w->draw.reflectionProbeTextures = allocator.allocate_array<zonetool::h1::GfxRawTexture>(1);
+			{
+				const auto np = static_cast<unsigned int>(1 + in.probes.size());
+				w->draw.reflectionProbeCount = np;
+				w->draw.reflectionProbes = allocator.allocate_array<zonetool::h1::GfxImage*>(np);
+				w->draw.reflectionProbeOrigins = allocator.allocate_array<zonetool::h1::GfxReflectionProbe>(np);
+				w->draw.reflectionProbeTextures = allocator.allocate_array<zonetool::h1::GfxRawTexture>(np);
+				for (unsigned int i = 0; i < np; i++)
+				{
+					w->draw.reflectionProbes[i] = allocator.allocate<zonetool::h1::GfxImage>();
+					w->draw.reflectionProbes[i]->name = allocator.duplicate_string(("*reflection_probe" + std::to_string(i)).c_str());
+					if (i > 0) for (int k = 0; k < 3; k++) w->draw.reflectionProbeOrigins[i].origin[k] = in.probes[i - 1][k];
+				}
+				w->cells[0].reflectionProbeCount = static_cast<unsigned char>(std::min(np, 255u));
+				w->cells[0].reflectionProbes = allocator.allocate_array<unsigned char>(np);
+				for (unsigned int i = 0; i < np && i < 255; i++) w->cells[0].reflectionProbes[i] = static_cast<unsigned char>(i);
+			}
 			w->draw.reflectionProbeReferenceCount = 0;
 			w->draw.reflectionProbeReferenceOrigins = nullptr;
 			w->draw.reflectionProbeReferences = nullptr;
@@ -1112,9 +1143,9 @@ namespace zonetool::h1::importer
 			{
 				for (unsigned int j = 0; j < 3; j++)
 				{
-					w->lightGrid.colors[0].rgb[i][j] = 0x3800;
-					w->lightGrid.defaultLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(0.5f);
-					w->lightGrid.skyLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(0.5f);
+					w->lightGrid.colors[0].rgb[i][j] = zonetool::half_float::float_to_half(in.grid[j]);
+					w->lightGrid.defaultLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(in.grid[j]);
+					w->lightGrid.skyLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(in.grid[j]);
 				}
 			}
 			for (auto i = 0; i < 3; i++)
@@ -1241,7 +1272,17 @@ namespace zonetool::h1::importer
 					}
 					dst.material = mp;
 					dst.laf.fields.lightmapIndex = 0;
-					dst.laf.fields.reflectionProbeIndex = 0;
+					{
+						unsigned int best = 0; float bd = 3000.0f * 3000.0f;
+						const float c[3] = {(s.mins[0] + s.maxs[0]) * 0.5f, (s.mins[1] + s.maxs[1]) * 0.5f, (s.mins[2] + s.maxs[2]) * 0.5f};
+						for (size_t q = 0; q < in.probes.size(); q++)
+						{
+							const float px = in.probes[q][0] - c[0], py = in.probes[q][1] - c[1], pz = in.probes[q][2] - c[2];
+							const float d2 = px * px + py * py + pz * pz;
+							if (d2 < bd) { bd = d2; best = static_cast<unsigned int>(q + 1); }
+						}
+						dst.laf.fields.reflectionProbeIndex = static_cast<unsigned char>(best & 0xFF);
+					}
 					dst.laf.fields.primaryLightEnvIndex = 1; // env 1 = the sun
 					dst.laf.fields.flags = 0;
 
@@ -1382,6 +1423,7 @@ namespace zonetool::h1::importer
 			g_copied.clear();
 			read_mats_tsv(g_src_dir + stem + ".mats.tsv", in);
 			read_lmuv(g_src_dir + stem + ".h1lmuv", in);
+			read_probes_and_grid(g_src_dir + stem, in);
 		}
 
 		// Drawn surfaces only (no sky, tool or water), sorted by category (opaque, decal, translucent).
