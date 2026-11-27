@@ -140,6 +140,9 @@ namespace zonetool::h1::importer
 			// 56 directions (the 4x4x4 lattice shell, x fastest), e.g. Black Ops II's SH grid
 			// evaluated there; overrides the flat colour so models get directional light.
 			std::vector<std::array<float, 3>> grid56;
+			// <stem>.col: optional Black Ops II collision (codlegacyclient t6_col_dump: the clip map's mesh,
+			// world brushes and static model boxes); used instead of the render triangles when present.
+			std::string col_path;
 		};
 
 		void read_probes_and_grid(const std::string& stem_path, map_in& m)
@@ -163,6 +166,7 @@ namespace zonetool::h1::importer
 				while (v.size() < 56 && f >> r >> g >> b) v.push_back({r, g, b});
 				if (v.size() == 56) { m.grid56 = v; ZONETOOL_INFO("importmap: directional light grid (56 directions)"); }
 			}
+			if (std::filesystem::exists(stem_path + ".col")) m.col_path = stem_path + ".col";
 		}
 
 		std::string safe_name(const std::string& in)
@@ -627,6 +631,73 @@ namespace zonetool::h1::importer
 				}
 			}
 
+			// Black Ops II's own collision, when exported: far fewer triangles than the render mesh (no budget cut),
+			// stairs as the ramps and clip brushes the map was made with, props as boxes, and per-material contents
+			// (0x1 solid, 0x10000 player clip, 0x2000 bullet-only clip...). Names get a contents suffix when not plain solid.
+			std::unordered_map<std::string, int> col_contents;
+			if (!in.col_path.empty() && !std::getenv("BO2_COL_RENDER"))
+			{
+				std::ifstream cf(in.col_path, std::ios::binary);
+				char magic[8]{};
+				cf.read(magic, 8);
+				if (cf && std::memcmp(magic, "BO2COL01", 8) == 0)
+				{
+					std::uint32_t nm = 0;
+					cf.read(reinterpret_cast<char*>(&nm), 4);
+					std::vector<std::string> cnames(nm);
+					std::vector<int> ccont(nm);
+					for (std::uint32_t i = 0; i < nm; i++)
+					{
+						std::uint16_t len = 0;
+						cf.read(reinterpret_cast<char*>(&len), 2);
+						std::string n(len, '\0');
+						cf.read(n.data(), len);
+						std::int32_t sfl = 0, cfl = 0;
+						cf.read(reinterpret_cast<char*>(&sfl), 4);
+						cf.read(reinterpret_cast<char*>(&cfl), 4);
+						ccont[i] = cfl & 0x03FFFFFF;
+						if (ccont[i] != 1 && ccont[i] != 0)
+						{
+							char suf[16];
+							std::snprintf(suf, sizeof(suf), "_c%x", ccont[i]);
+							n += suf;
+						}
+						cnames[i] = n;
+					}
+					std::uint32_t nt = 0;
+					cf.read(reinterpret_cast<char*>(&nt), 4);
+					b.tris.clear();
+					mat_names.clear();
+					std::unordered_map<std::string, unsigned int> name_idx;
+					size_t skipped = 0;
+					for (std::uint32_t t = 0; t < nt && cf; t++)
+					{
+						float p[9];
+						std::uint16_t m = 0, src = 0;
+						cf.read(reinterpret_cast<char*>(p), 36);
+						cf.read(reinterpret_cast<char*>(&m), 2);
+						cf.read(reinterpret_cast<char*>(&src), 2);
+						if (m >= nm || ccont[m] == 0) { skipped++; continue; }
+						bool far = false;
+						for (int k = 0; k < 9; k++) if (std::fabs(p[k]) > 60000.0f) far = true;
+						if (far) { skipped++; continue; }
+						auto it = name_idx.find(cnames[m]);
+						if (it == name_idx.end())
+						{
+							it = name_idx.emplace(cnames[m], static_cast<unsigned int>(mat_names.size())).first;
+							mat_names.push_back(cnames[m]);
+							col_contents[cnames[m]] = ccont[m];
+						}
+						tri_t tri{};
+						tri.mat = it->second;
+						std::memcpy(tri.p, p, sizeof(p));
+						for (int k = 0; k < 3; k++) tri.c[k] = (tri.p[0][k] + tri.p[1][k] + tri.p[2][k]) / 3.0f;
+						b.tris.push_back(tri);
+					}
+					ZONETOOL_INFO("collision from %s: %llu triangles (%llu skipped)", in.col_path.c_str(), static_cast<unsigned long long>(b.tris.size()), static_cast<unsigned long long>(skipped));
+				}
+			}
+
 			ZONETOOL_INFO("collision triangles: %llu, materials: %llu", static_cast<unsigned long long>(b.tris.size()), static_cast<unsigned long long>(mat_names.size()));
 			if (b.tris.empty() || mat_names.empty()) mat_names.push_back("default");
 
@@ -774,7 +845,8 @@ namespace zonetool::h1::importer
 			{
 				info->materials[i].name = allocator.duplicate_string(mat_names[i]);
 				info->materials[i].surfaceFlags = static_cast<int>(surface_type_for(mat_names[i]) << 20);
-				info->materials[i].contents = 1;
+				const auto cc = col_contents.find(mat_names[i]);
+				info->materials[i].contents = cc != col_contents.end() ? cc->second : 1;
 			}
 
 			info->bCollisionTree.leafbrushNodesCount = 1;
