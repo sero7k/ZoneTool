@@ -30,7 +30,7 @@
 // the sun as the one primary light, the spawn and script entities, one
 // placeholder material per Black Ops II material.
 // What is STUBBED (as in the IW7 converter): lightmaps (one placeholder pair, whose pixels the port script
-// fills, and the map's own coordinates when it writes <stem>.h1lmuv), reflection probes (probe 0 map-wide plus <stem>.probes), light grid (flat, 1 node, colour from <stem>.grid),
+// fills, and the map's own coordinates when it writes <stem>.h1lmuv), reflection probes (probe 0 map-wide plus <stem>.probes), light grid (1 node, colour from <stem>.grid or 56 directions from <stem>.grid56),
 // vis data (zeroed), sky (none), static models (none: they are in the world).
 // The BSP/cell structure is one cell with one aabb tree whose children are
 // 2048-unit grid cells of surfaces.
@@ -136,6 +136,10 @@ namespace zonetool::h1::importer
 			std::vector<std::array<float, 3>> probes;
 			// <stem>.grid: "r g b" flat light grid colour for models (default 0.5 grey)
 			float grid[3] = {0.5f, 0.5f, 0.5f};
+			// <stem>.grid56: optional 56 "r g b" lines, the light in each of the light grid's
+			// 56 directions (the 4x4x4 lattice shell, x fastest), e.g. Black Ops II's SH grid
+			// evaluated there; overrides the flat colour so models get directional light.
+			std::vector<std::array<float, 3>> grid56;
 		};
 
 		void read_probes_and_grid(const std::string& stem_path, map_in& m)
@@ -151,6 +155,13 @@ namespace zonetool::h1::importer
 				std::ifstream f(stem_path + ".grid");
 				float r, g, b;
 				if (f >> r >> g >> b) { m.grid[0] = r; m.grid[1] = g; m.grid[2] = b; ZONETOOL_INFO("importmap: light grid colour %.3f %.3f %.3f", r, g, b); }
+			}
+			{
+				std::ifstream f(stem_path + ".grid56");
+				float r, g, b;
+				std::vector<std::array<float, 3>> v;
+				while (v.size() < 56 && f >> r >> g >> b) v.push_back({r, g, b});
+				if (v.size() == 56) { m.grid56 = v; ZONETOOL_INFO("importmap: directional light grid (56 directions)"); }
 			}
 		}
 
@@ -1182,9 +1193,10 @@ namespace zonetool::h1::importer
 			{
 				for (unsigned int j = 0; j < 3; j++)
 				{
-					w->lightGrid.colors[0].rgb[i][j] = zonetool::half_float::float_to_half(in.grid[j]);
-					w->lightGrid.defaultLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(in.grid[j]);
-					w->lightGrid.skyLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(in.grid[j]);
+					const float c = in.grid56.size() == 56 ? in.grid56[i][j] : in.grid[j];
+					w->lightGrid.colors[0].rgb[i][j] = zonetool::half_float::float_to_half(c);
+					w->lightGrid.defaultLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(c);
+					w->lightGrid.skyLightGridColors.rgb[i][j] = zonetool::half_float::float_to_half(c);
 				}
 			}
 			for (auto i = 0; i < 3; i++)
