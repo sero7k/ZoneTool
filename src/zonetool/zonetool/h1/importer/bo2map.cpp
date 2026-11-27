@@ -678,9 +678,9 @@ namespace zonetool::h1::importer
 						cf.read(reinterpret_cast<char*>(&m), 2);
 						cf.read(reinterpret_cast<char*>(&src), 2);
 						if (m >= nm || ccont[m] == 0) { skipped++; continue; }
-						bool far = false;
-						for (int k = 0; k < 9; k++) if (std::fabs(p[k]) > 60000.0f) far = true;
-						if (far) { skipped++; continue; }
+						bool too_far = false;
+						for (int k = 0; k < 9; k++) if (std::fabs(p[k]) > 60000.0f) too_far = true;
+						if (too_far) { skipped++; continue; }
 						auto it = name_idx.find(cnames[m]);
 						if (it == name_idx.end())
 						{
