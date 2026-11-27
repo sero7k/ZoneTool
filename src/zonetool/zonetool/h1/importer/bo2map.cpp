@@ -1093,6 +1093,45 @@ namespace zonetool::h1::importer
 			w->draw.indexCount = total_indices;
 			w->draw.indices = allocator.allocate_array<unsigned short>(std::max<std::uint32_t>(total_indices, 1));
 
+			// Per surface, as stock H1 maps store them: the longest triangle edge (world units; the engine's
+			// tessellation/displacement path reads it) and the texture density (texture units per world unit),
+			// which stock vertices carry as the magnitude of binormalSign.
+			std::vector<float> surf_max_edge(surface_count, 1.0f);
+			std::vector<float> surf_density(surface_count, 1.0f / 64.0f);
+			for (unsigned int p = 0; p < surface_count; p++)
+			{
+				const auto& s = in.surfaces[order[p]];
+				double world_len = 0.0, uv_len = 0.0; float max_edge = 0.0f;
+				for (std::uint32_t t = 0; t < s.tri_count; t++)
+				{
+					std::uint32_t vi[3];
+					bool ok = true;
+					for (int c = 0; c < 3; c++)
+					{
+						const auto ii = s.first_index + t * 3 + c;
+						vi[c] = ii < in.indices.size() ? in.indices[ii] : 0;
+						if (vi[c] >= s.vertex_count) ok = false;
+					}
+					if (!ok) continue;
+					for (int c = 0; c < 3; c++)
+					{
+						const auto& va = in.vertices[static_cast<size_t>(s.base_vertex) + vi[c]];
+						const auto& vb = in.vertices[static_cast<size_t>(s.base_vertex) + vi[(c + 1) % 3]];
+						const float ex = va.xyz[0] - vb.xyz[0], ey = va.xyz[1] - vb.xyz[1], ez = va.xyz[2] - vb.xyz[2];
+						const float el = std::sqrt(ex * ex + ey * ey + ez * ez);
+						const float eu = va.uv[0] - vb.uv[0], ev = va.uv[1] - vb.uv[1];
+						world_len += el;
+						uv_len += std::sqrt(eu * eu + ev * ev);
+						if (el > max_edge) max_edge = el;
+					}
+				}
+				if (max_edge > 0.0f) surf_max_edge[p] = max_edge;
+				if (world_len > 0.0 && uv_len > 0.0)
+				{
+					surf_density[p] = static_cast<float>(std::clamp(uv_len / world_len, 1.0 / 4096.0, 1.0));
+				}
+			}
+
 			std::uint32_t at_index = 0;
 			for (unsigned int p = 0; p < surface_count; p++)
 			{
@@ -1102,7 +1141,7 @@ namespace zonetool::h1::importer
 					const auto& src = in.vertices[static_cast<size_t>(s.base_vertex) + k];
 					auto& dst = w->draw.vd.vertices[first_vertex[p] + k];
 					std::memcpy(dst.xyz, src.xyz, sizeof(dst.xyz));
-					dst.binormalSign = src.tangent[3] < 0.0f ? -1.0f : 1.0f;
+					dst.binormalSign = src.tangent[3] < 0.0f ? -surf_density[p] : surf_density[p];
 					for (int c = 0; c < 4; c++) dst.color.array[c] = src.rgba[c];
 					dst.texCoord[0] = src.uv[0];
 					dst.texCoord[1] = src.uv[1];
@@ -1256,7 +1295,7 @@ namespace zonetool::h1::importer
 					auto& dst = d.surfaces[p];
 					dst.tris.vertexLayerData = 0;
 					dst.tris.firstVertex = first_vertex[p];
-					dst.tris.maxEdgeLength = 0.0f;
+					dst.tris.maxEdgeLength = surf_max_edge[p];
 					dst.tris.unk = -1;
 					dst.tris.vertexCount = static_cast<unsigned short>(s.vertex_count);
 					dst.tris.triCount = static_cast<unsigned short>(s.tri_count);
@@ -1285,6 +1324,16 @@ namespace zonetool::h1::importer
 					}
 					dst.laf.fields.primaryLightEnvIndex = 1; // env 1 = the sun
 					dst.laf.fields.flags = 0;
+					{
+						// An ocean surface (our sea or a map ocean material) is set up like the stock H1 ocean
+						// (mp_bog_summer): primary light env 0, surface flag 4.
+						const std::string& mn = in.materials[s.material].h1_name;
+						if (mn.find("ocean") != std::string::npos || (mn.size() >= 4 && mn.compare(mn.size() - 4, 4, "_sea") == 0))
+						{
+							dst.laf.fields.primaryLightEnvIndex = 0;
+							dst.laf.fields.flags = 4;
+						}
+					}
 
 					std::memcpy(&d.surfacesBounds[p].bounds.midPoint, &world.midPoint, 0); // set below
 					for (int k = 0; k < 3; k++)
