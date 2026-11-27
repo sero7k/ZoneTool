@@ -1323,7 +1323,9 @@ namespace zonetool::h1::importer
 						dst.laf.fields.reflectionProbeIndex = static_cast<unsigned char>(best & 0xFF);
 					}
 					dst.laf.fields.primaryLightEnvIndex = 1; // env 1 = the sun
-					dst.laf.fields.flags = 0;
+					// stock: opaque world surfaces carry GFX_SURFACE_CASTS_SUN_SHADOW
+					dst.laf.fields.flags = (in.materials[s.material].kind == K_OPAQUE || in.materials[s.material].kind == K_ALPHATEST)
+						? static_cast<unsigned char>(zonetool::h1::GFX_SURFACE_CASTS_SUN_SHADOW) : 0;
 					{
 						// An ocean surface (our sea or a map ocean material) is set up like the stock H1 ocean
 						// (mp_bog_summer): primary light env 0, surface flag 4.
