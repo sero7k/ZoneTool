@@ -1169,8 +1169,8 @@ namespace zonetool::h1::importer
 
 			h1_asset->numLeafs = 2;
 			h1_asset->leafs = allocator.allocate_array<zonetool::h1::cLeaf_t>(2);
-			h1_asset->leafs[1].firstCollAabbIndex = 0;
-			h1_asset->leafs[1].collAabbCount = 1;
+			h1_asset->leafs[1].firstCollAabbIndex = used.empty() ? 0 : 1; // per-material roots (CM_TraceThroughAabbTree 0x4CFFE0)
+			h1_asset->leafs[1].collAabbCount = used.empty() ? 1 : static_cast<unsigned int>(used.size());
 			h1_asset->leafs[1].brushContents = 0;
 			h1_asset->leafs[1].terrainContents = 0;
 			for (unsigned int i = 0; i < info->numMaterials; i++) h1_asset->leafs[1].terrainContents |= info->materials[i].contents;
