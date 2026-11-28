@@ -1,56 +1,46 @@
-# x64 ZoneTool
+# x64 ZoneTool (sero7k fork)
+A fastfile unlinker and linker for x64 Call of Duty titles, based on [Aurora's x64-zt](https://github.com/auroramod/x64-zt) (`develop`, x64-zt 2), plus our map work for the CoD Legacy client. It reads fastfiles straight from the game folder and never runs the game.
 
-x64-zt is a standalone fastfile unlinker and linker for x64 Call of Duty titles. x64-zt can link, unlink, and convert assets between games with accurate conversions for the source & target engines in mind.
+## What's new in this fork
+On top of Aurora's x64-zt:
 
-> [!WARNING]
-> `main` contains the legacy x64-zt code. x64-zt 2 is a heavy rework of that code here on `develop`, and is pending release. [Pre-build releases](https://github.com/auroramod/x64-zt/releases/tag/develop-latest) contain x64-zt 2, but it is not guaranteed to work good yet.
+### Black Ops II -> MWR map import (`importmap`) — new
+- Imports a whole BO2 map from the files CodLegacy's exporter writes: world, spawns and entities, materials and real BO2 textures, sky.
+- **Collision:** BO2's own clip mesh, world brushes and prop boxes (`<stem>.col`), so players walk on decks, stairs and props.
+- **Lighting:** the map's own lightmap coordinates, BO2 reflection probes, and directional model lighting from BO2's light grid; surfaces cast sun shadows.
+- Working in game on **`mp_carrier`**.
 
-## Supported games
+### Infinite Warfare -> MWR map port — improved
+- Full map port used for `mp_flip`: world, collision, entities, materials, models, reflection probes, glass and effects.
+- Effects (particle systems as H1 effects, flares, glass shards), reflective glass, IW7 metalness and gloss, per-area model lighting, lightmap baking tools.
 
-| Codename | Game |
-|---|---|
-| **IW3** | Call of Duty 4: Modern Warfare *(dumping)* |
-| **IW4** | Modern Warfare 2 *(dumping)* |
-| **IW5** | Modern Warfare 3 *(dumping)* |
-| **IW6** | Ghosts |
-| **S1** | Advanced Warfare |
-| **H1** | Modern Warfare Remastered |
-| **H2** | Modern Warfare 2 Campaign Remastered |
-| **S2** | WWII |
-| **IW7** | Infinite Warfare |
-| **IW8** | Modern Warfare (2019) |
-| **T9** | Black Ops Cold War *(experimental)* |
-| **S4** | Vanguard |
+### Newer games through ACTS — new
+- `acts` command runs [atian-cod-tools](https://github.com/ate47/atian-cod-tools): dump BO3, BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6 and BO7; link BO3 / BO4 / Cold War zones; GSC and hash tools.
 
-## Asset conversion
+### From Aurora (merged in)
+- x64-zt 2: standalone, reads fastfiles directly (`-game <name> -path <folder>`).
+- New games: WWII (S2), Modern Warfare 2019 (IW8), Vanguard (S4), Cold War (T9, experimental).
 
-Rows are the source game. Columns are the `--target` game.
+## Converting to MWR (H1)
+What each game can be converted to *Modern Warfare Remastered* with today, what we plan to add, and how hard it is.
 
-| From ↓ / To → | IW6 | S1 | H1 | H2 | S2 | IW7 | IW8 | T9 | S4 |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| **IW3** | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | ✅ | ❔ | ❌ | ❌ |
-| **IW4** | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | ❔ | ❌ | ❌ |
-| **IW5** | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 | ⚠️ | ❔ | ❌ | ❌ |
-| **IW6** | ✅ | ❌ | ✅ | ❔ | ❔ | ❌ | ❌ | ❌ | ❌ |
-| **S1**  | ❌ | ✅ | ✅ | ✅ | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| **H1**  | ❌ | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ | ❌ | ❌ |
-| **H2**  | ❌ | ❌ | ✅ | ✅ | ❔ | ❌ | ❌ | ❌ | ❌ |
-| **S2**  | ❌ | ❌ | ⚠️ | ❔ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **IW7** | ❌ | ❌ | ⚠️ | ❌ | ❌ | ✅ | ⚠️ | ❌ | ❌ |
-| **IW8** | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ | ✅ | ❌ | ❌ |
-| **T9**  | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🧪 | 🧪 | ❌ |
-| **S4**  | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ | ❌ | ✅ |
+| Game | Converts to MWR now | Planned | How hard |
+|---|---|---|---|
+| **Ghosts** (IW6) | Maps and assets | — | Done (Aurora) |
+| **Advanced Warfare** (S1) | Maps and assets | — | Done (Aurora) |
+| **MW2 Campaign Remastered** (H2) | Maps and assets | — | Done (Aurora) |
+| **WWII** (S2) | Maps and assets, partly | — | Easy (Aurora is finishing it) |
+| **Infinite Warfare** (IW7) | Maps (`mp_flip` ported) | Better lighting and glass | Medium |
+| **Black Ops II** (T6) | Maps (`mp_carrier` working) | Every BO2 map, then menus and UI, then weapons | Maps medium (~3–8 h each now the pipeline exists); weapons and animations hard |
+| **CoD4, MW2, MW3** (IW3/4/5) | Through [Aurora's IW3/4/5 tools](https://docs.auroramod.dev/map-porting-iw5) | Aurora plans dumping in x64-zt | Done (other tool) |
+| **World at War** (T4) | Dome ported with our own scripts | Move the steps into ZoneTool | Medium |
+| **Black Ops III** (T7) | Images and materials (`v1` branch only) | Maps later | Hard: no map converter yet, the map format needs to be worked out |
+| **Modern Warfare 2019** (IW8) | No (only to IW7) | Not yet | Very hard: newer renderer and materials |
+| **Vanguard** (S4) | No (only to MW2019) | Ideas only | Very hard: would go S4 -> IW8 -> IW7 -> H1, or a new converter |
+| **Cold War** (T9) | No (experimental dumping, to MW2019) | Ideas only | Very hard: newer engine and materials |
+| **BO4, MWII, MWIII, BO6, BO7** | No (can be dumped through ACTS) | Ideas only | Very hard: newer engines, streamed assets, different materials and lighting |
 
-| | Status | Meaning |
-|:-:|---|---|
-| ✅ | **Supported** | Works for the assets of this game pair |
-| ⚠️ | **Partial** | Unfinished (some assets may work like weapons) |
-| 🧪 | **Experimental** | Broken or incorrect outputs |
-| ❔ | **Possible** | Can be achieved via alternative conversions (like `IW5 -> IW7 -> IW8`) |
-| 🚧 | **Planned** | x86 games from Joelrau/zonetool for dumping only |
-| ❌ | **Not supported** | No conversion |
-
-The [x64-zt documentation](https://docs.auroramod.dev/x64-zt#game-conversion-support) has more information about conversion if you're interested.
+**How hard:** Easy = mostly done, needs tidying. Medium = works, needs per-map polish. Hard = big pieces still missing. Very hard = a new converter from scratch.
 
 ## Quick start
 
@@ -131,7 +121,7 @@ ACTS dumps scripts and data tables, not images, models or worlds.
 
 ### v1
 
-The v1 ZoneTool of this fork (hooks the game exe, in-process T7 dumpers) is kept on the `v1` branch.
+The old v1 ZoneTool of this fork (hooks the game exe, in-process Black Ops III dumpers, `ZT_DUMP_REFS`, old `-importmap` / `-buildzone` flags) is kept on the [`v1`](https://github.com/sero7k/ZoneTool/tree/v1) branch. Its builds are published as the [`v1-latest`](https://github.com/sero7k/ZoneTool/releases/tag/v1-latest) release, which the current Carrier build scripts use until they move to the new commands.
 
 ## Guides
 
