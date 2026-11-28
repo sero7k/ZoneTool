@@ -3,6 +3,7 @@
 #include "material.hpp"
 #include "fxeffectdef.hpp"
 #include <utils/string.hpp>
+#include <array>
 #pragma warning(disable: 4127) // constexpr test toggles in conditions (warnings are errors in Release)
 
 namespace zonetool::iw7
@@ -82,6 +83,60 @@ namespace zonetool::iw7
 
 					return material_type;
 				}
+
+				const char* find_image(const zonetool::iw7::Material* asset, const unsigned int name_hash)
+				{
+					for (auto i = 0; i < asset->textureCount && asset->textureTable; i++)
+					{
+						const auto& texture = asset->textureTable[i];
+						if (texture.nameHash == name_hash && texture.image && texture.image->name)
+						{
+							return texture.image->name;
+						}
+					}
+					return nullptr;
+				}
+
+				ordered_json make_constant(const char* name, const unsigned int hash, const std::array<float, 4>& literal)
+				{
+					ordered_json constant;
+					constant["name"] = name;
+					constant["nameHash"] = hash;
+					constant["literal"] = literal;
+					return constant;
+				}
+
+				ordered_json make_texture(const std::string& image, const int semantic, const int first, const int last, const unsigned int hash)
+				{
+					ordered_json texture;
+					texture["image"] = image;
+					texture["semantic"] = semantic;
+					texture["samplerState"] = 19;
+					texture["lastCharacter"] = last;
+					texture["firstCharacter"] = first;
+					texture["typeHash"] = hash;
+					return texture;
+				}
+			}
+
+			bool is_layered(const zonetool::iw7::Material* asset)
+			{
+				return asset && asset->name && asset->name[0] == '*';
+			}
+
+			bool draws_layer_blend(const zonetool::iw7::Material* asset)
+			{
+				if (!is_layered(asset) || !asset->techniqueSet || !asset->techniqueSet->name || asset->info.sortKey >= 7)
+				{
+					return false;
+				}
+
+				if (std::string(asset->techniqueSet->name).find("_atest") != std::string::npos)
+				{
+					return false;
+				}
+
+				return find_image(asset, 2695565377u) && find_image(asset, 3054311504u); // colorMap, colorMap1
 			}
 
 #define MATERIAL_DUMP_STRING(entry) \
@@ -702,6 +757,31 @@ namespace zonetool::iw7
 						material_images = ordered_json::array({ t1, t2, t3 });
 						ZONETOOL_INFO("v102 gloss: %s (%s)%s", asset->name, techset.data(), mirror ? " mirror glass" : dull ? " dull" : "");
 					}
+				}
+
+				if (draws_layer_blend(asset) && matdata["techniqueSet->name"] == "wc_l_sm_ndw_b0c0l0_nfwpf_iw6")
+				{
+					matdata["techniqueSet->name"] = "l_sm_r0c0nl0sl0l0_b1c1nl1sl1l1_nfwpf_iw6"; // TODO: donor IW6 techset, layer 1 weight = col1.a * vcol.g
+					matdata["materialType"] = 35;
+					matdata["constantTable"] = ordered_json::array({
+						make_constant("envMapParms", 1033475292u, {0.2f, 1.0f, 2.5f, 2.0f}),
+						make_constant("colorTint1", 2006164043u, {1.0f, 1.0f, 1.0f, 1.0f}),
+						make_constant("bloomParams1", 2943609902u, {0.0f, 0.0f, 0.0f, 0.0f}),
+						make_constant("reflectionRa", 2983661024u, {8096.0f, 0.0f, 0.0f, 0.0f}),
+						make_constant("colorTint", 3054254906u, {1.0f, 1.0f, 1.0f, 1.0f}),
+						make_constant("reflectionRa", 3344177073u, {8096.0f, 0.0f, 0.0f, 0.0f}),
+						make_constant("bloomParams", 3733414975u, {0.0f, 0.0f, 0.0f, 0.0f}),
+						make_constant("envMapParms1", 4039913581u, {0.13f, 0.5f, 4.0f, 2.0f}),
+					});
+					material_images = ordered_json::array({
+						make_texture("$black", 8, 's', 'p', 887934131u),
+						make_texture("$identitynormalmap", 5, 'n', 'p', 1507003663u),
+						make_texture("$identitynormalmap", 5, 'n', '1', 2486480606u),
+						make_texture(find_image(asset, 2695565377u), 2, 'c', 'p', 2695565377u),
+						make_texture(find_image(asset, 3054311504u), 2, 'c', '1', 3054311504u),
+						make_texture("$black", 8, 's', '1', 3532022562u),
+					});
+					ZONETOOL_INFO("layer blend: %s (%s) layers %s + %s", asset->name, techset.data(), find_image(asset, 2695565377u), find_image(asset, 3054311504u));
 				}
 
 				matdata["textureTable"] = material_images;

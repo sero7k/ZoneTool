@@ -493,6 +493,8 @@ namespace zonetool::iw7
 				h1_asset->stageCount = 1;
 				h1_asset->stages = allocator.allocate_array<zonetool::h1::Stage>(1);
 				h1_asset->stages[0].name = allocator.duplicate_string("unknown");
+				h1_asset->stages[0].sunPrimaryLightIndex = asset->lastSunPrimaryLightIndex ? 1 : 0; // view sun light (sub_1C71B0)
+				h1_asset->stages[0].triggerIndex = 1024;
 				h1_asset->stages[0].radiometricScale = 0.001f;
 
 				h1_asset->checksum = 0;
