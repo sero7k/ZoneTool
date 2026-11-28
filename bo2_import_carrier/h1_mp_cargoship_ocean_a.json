@@ -1,0 +1,234 @@
+{
+  "name": "mc/h1_mp_cargoship_ocean_a",
+  "techniqueSet->name": "mc_ocean_nolm_displace_octave3_addhght3_foam_gloss_flatn_nfwpf_hdr",
+  "gameFlags": 0,
+  "sortKey": 2,
+  "renderFlags": 0,
+  "textureAtlasRowCount": 1,
+  "textureAtlasColumnCount": 1,
+  "textureAtlasFrameBlend": 0,
+  "textureAtlasAsArray": 0,
+  "surfaceTypeBits": 1048576,
+  "cameraRegion": 0,
+  "materialType": 3,
+  "assetFlags": 0,
+  "constantTable": [
+    {
+      "name": "oceanUVAnimP",
+      "nameHash": 105790181,
+      "literal": [
+        0.0012000000569969416,
+        0.0012000000569969416,
+        0.15000000596046448,
+        0.0
+      ]
+    },
+    {
+      "name": "envMapParms",
+      "nameHash": 1033475292,
+      "literal": [
+        0.06,
+        1.0,
+        3.0,
+        3.5
+      ]
+    },
+    {
+      "name": "oceanSpecPar",
+      "nameHash": 1053693182,
+      "literal": [
+        0.25,
+        0.21,
+        0.17,
+        0.2668749988079071
+      ]
+    },
+    {
+      "name": "oceanFoamPar",
+      "nameHash": 1069609438,
+      "literal": [
+        -250.0,
+        0.0013333333190530539,
+        0.0035000001080334187,
+        1.0
+      ]
+    },
+    {
+      "name": "oceanUVAnimP",
+      "nameHash": 1192193176,
+      "literal": [
+        4.999999873689376e-05,
+        4.999999873689376e-05,
+        0.0012990380637347698,
+        0.000750000006519258
+      ]
+    },
+    {
+      "name": "oceanUVAnimP",
+      "nameHash": 1192193178,
+      "literal": [
+        0.00039999998989515007,
+        0.00039999998989515007,
+        0.012000000104308128,
+        0.0
+      ]
+    },
+    {
+      "name": "oceanUVAnimP",
+      "nameHash": 1192193179,
+      "literal": [
+        1.4999999621068127e-05,
+        1.4999999621068127e-05,
+        6.511805258924142e-05,
+        0.00036930289934389293
+      ]
+    },
+    {
+      "name": "oceanAmplitu",
+      "nameHash": 2639530239,
+      "literal": [
+        40.0,
+        225.0,
+        150.0,
+        1024.0
+      ]
+    },
+    {
+      "name": "oceanSeconda",
+      "nameHash": 2748500635,
+      "literal": [
+        0.09,
+        0.13,
+        0.17,
+        0.0
+      ]
+    },
+    {
+      "name": "oceanMiscPar",
+      "nameHash": 2855173199,
+      "literal": [
+        2.0,
+        0.0024096386041492224,
+        0.20000000298023224,
+        0.20000000298023224
+      ]
+    },
+    {
+      "name": "oceanVtxDisp",
+      "nameHash": 3346571058,
+      "literal": [
+        0.20000000298023224,
+        0.8500000238418579,
+        0.05000000074505806,
+        0.0
+      ]
+    },
+    {
+      "name": "oceanImageSi",
+      "nameHash": 3348684887,
+      "literal": [
+        0.0009765625,
+        0.0009765625,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "hdrColorParm",
+      "nameHash": 3379990750,
+      "literal": [
+        0.5,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "oceanImageSi",
+      "nameHash": 3654906817,
+      "literal": [
+        0.00025,
+        0.00025,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "oceanFoamWei",
+      "nameHash": 3754247760,
+      "literal": [
+        12.0,
+        1.0,
+        4.0,
+        0.0
+      ]
+    }
+  ],
+  "textureTable": [
+    {
+      "image": "h1_ocean_waves_nml",
+      "semantic": 2,
+      "samplerState": 19,
+      "lastCharacter": 50,
+      "firstCharacter": 111,
+      "typeHash": 602143684
+    },
+    {
+      "image": "h1_cargoship_waterripple_mp_nml",
+      "semantic": 2,
+      "samplerState": 19,
+      "lastCharacter": 51,
+      "firstCharacter": 111,
+      "typeHash": 602143685
+    },
+    {
+      "image": "hdr_h1_sky_cargoshipocean_ft",
+      "semantic": 2,
+      "samplerState": 243,
+      "lastCharacter": 112,
+      "firstCharacter": 111,
+      "typeHash": 2100898151
+    },
+    {
+      "image": "h1_cargoship_waterripple_mp_nml",
+      "semantic": 2,
+      "samplerState": 19,
+      "lastCharacter": 112,
+      "firstCharacter": 111,
+      "typeHash": 2360956214
+    },
+    {
+      "image": "ocean_generic_color",
+      "semantic": 2,
+      "samplerState": 243,
+      "lastCharacter": 112,
+      "firstCharacter": 99,
+      "typeHash": 2695565377
+    },
+    {
+      "image": "per_ocean_water_foam_01_mp_col",
+      "semantic": 2,
+      "samplerState": 19,
+      "lastCharacter": 112,
+      "firstCharacter": 111,
+      "typeHash": 3231078207
+    },
+    {
+      "image": "~envbrdflut_ggx_16-rg",
+      "semantic": 15,
+      "samplerState": 226,
+      "lastCharacter": 116,
+      "firstCharacter": 101,
+      "typeHash": 3447584578
+    },
+    {
+      "image": "$black",
+      "semantic": 2,
+      "samplerState": 19,
+      "lastCharacter": 112,
+      "firstCharacter": 111,
+      "typeHash": 4093119486
+    }
+  ],
+  "subMaterials": null
+}

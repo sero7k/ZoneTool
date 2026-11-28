@@ -1,0 +1,199 @@
+# effect x y z pitch yaw roll (Black Ops II mp_carrier createfx positions, stand-in effects)
+vfx/moments/mp_ca_impact/vfx_ash -3855 80 183 272 90 -111
+vfx/moments/mp_ca_impact/vfx_smoke_med -1320 -364 64 303 135 -145
+vfx/moments/mp_ca_impact/vfx_steam_rising -513 1363 -325 273 131 -140
+vfx/moments/mp_ca_impact/vfx_steam_rising 783 -1512 -455 276 62 -54
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance -15695 16262 -291 275 184 -5
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance 6506 13350 -328 271 42 135
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance -12455 -13247 -470 273 87 90
+vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm -3977 47 55 280 148 -150
+vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm -4942 -87 56 288 211 146
+vfx/moments/mp_ca_impact/vfx_fire_med -3970 78 74 278 263 97
+vfx/moments/mp_ca_impact/vfx_fire_med -5021 -114 68 293 343 18
+vfx/moments/mp_ca_impact/vfx_steam_rising -4938 17 31 273 90 87
+vfx/moments/mp_ca_impact/vfx_smoke_med -5060 147 30 297 339 -2
+vfx/ambient/smoke/smk_plume_black_xsml -5368 133 35 288 350 10
+vfx/ambient/smoke/smk_plume_black_xsml -5390 64 32 288 350 10
+vfx/moments/mp_ca_impact/vfx_fire_sm -5410 69 32 284 192 179
+vfx/moments/mp_ca_impact/vfx_fire_sm -5378 140 36 285 176 -173
+vfx/moments/mp_ca_impact/vfx_fire_sm -5077 -71 76 321 100 -126
+vfx/ambient/smoke/smk_plume_black_xsml -5080 -59 79 288 350 10
+vfx/moments/mp_ca_impact/vfx_smoke_med -4091 132 50 277 297 46
+vfx/moments/mp_ca_impact/vfx_steam_rising -4031 132 44 273 90 79
+vfx/moments/mp_ca_impact/vfx_steam_rising -4445 -196 30 276 84 71
+vfx/ambient/smoke/smk_plume_black_xsml -4604 -156 31 288 350 10
+vfx/moments/mp_ca_impact/vfx_fire_sm -4599 262 54 272 138 -170
+vfx/moments/mp_ca_impact/vfx_steam_rising -4281 44 44 273 90 79
+vfx/moments/mp_ca_impact/vfx_steam_rising -4609 278 48 273 90 87
+vfx/moments/mp_ca_impact/vfx_smoke_med -4429 -211 36 274 168 168
+vfx/moments/mp_ca_impact/vfx_fire_sm -4453 -193 35 299 144 -170
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -4786 42 115 65 223 83
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -4806 -18 133 41 52 -86
+vfx/ambient/smoke/smk_plume_black_xsml -4606 275 60 280 298 55
+vfx/ambient/smoke/smk_plume_black_xsml -5129 -82 42 288 350 10
+vfx/moments/mp_ca_impact/vfx_fire_med -4930 -96 63 293 343 18
+vfx/moments/mp_ca_impact/vfx_steam_rising -3959 1893 -305 272 54 -57
+vfx/moments/mp_ca_impact/vfx_steam_rising -3317 -2487 -149 272 54 -57
+vfx/moments/mp_ca_impact/vfx_steam_rising -4011 -38 44 271 96 93
+vfx/moments/mp_ca_impact/vfx_ash -3868 2 180 270 0 14
+vfx/moments/mp_ca_impact/vfx_ash -5019 -69 183 270 0 -12
+vfx/moments/mp_ca_impact/vfx_ash -4976 -169 197 270 360 2
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -4281 92 61 357 131 2
+vfx/moments/mp_ca_impact/vfx_fire_sm -4280 95 50 277 176 160
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -5077 -71 77 0 61 0
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -4591 227 66 332 356 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance -13732 15786 -30 274 8 -180
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance -10752 -13197 -318 283 345 180
+vfx/moments/mp_ca_impact/vfx_fire_med -1371 -357 46 336 174 4
+vfx/moments/mp_ca_impact/vfx_fire_med -2200 406 15 278 270 90
+vfx/moments/mp_ca_impact/vfx_smoke_med -2228 399 55 290 355 6
+vfx/moments/mp_ca_impact/vfx_smoke_med -2464 790 53 290 355 11
+vfx/moments/mp_ca_impact/vfx_steam_rising -2094 538 51 276 84 99
+vfx/moments/mp_ca_impact/vfx_fire_sm -2466 773 44 284 150 -150
+vfx/moments/mp_ca_impact/vfx_smoke_med -2366 786 94 290 355 11
+vfx/moments/mp_ca_impact/vfx_steam_rising -2455 745 60 276 84 99
+vfx/moments/mp_ca_impact/vfx_steam_rising -3448 -1684 -24 271 256 77
+vfx/moments/mp_ca_impact/vfx_steam_rising -4020 -1906 -19 270 0 -21
+vfx/moments/mp_ca_impact/vfx_steam_rising -4236 -1905 -16 270 358 -19
+vfx/moments/mp_ca_impact/vfx_steam_rising -4460 -1908 -19 270 358 -21
+vfx/moments/mp_ca_impact/vfx_steam_rising -4675 -1909 -18 270 358 -22
+vfx/moments/mp_ca_impact/vfx_steam_rising -4557 -1971 -24 276 76 -76
+vfx/moments/mp_ca_impact/vfx_steam_rising -2702 1869 -121 273 274 90
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -3428 -82 22 317 176 2
+vfx/ambient/smoke/smk_plume_black_xsml -3423 -70 31 288 350 10
+vfx/moments/mp_ca_impact/vfx_steam_rising -2235 192 33 276 84 99
+vfx/moments/mp_ca_impact/vfx_smoke_med -2254 191 30 275 313 52
+vfx/moments/mp_ca_impact/vfx_motes_cloud -5517 950 92 0 0 0
+vfx/moments/mp_ca_impact/vfx_motes_cloud -4846 927 110 0 176 0
+vfx/moments/mp_ca_impact/vfx_motes_cloud -4267 -1345 102 25 269 0
+vfx/ambient/smoke/smk_plume_black_xsml -4292 -370 44 288 350 10
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -6044 -971 142 65 223 83
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -2990 -1425 -24 346 170 7
+vfx/ambient/smoke/smk_plume_black_xsml -2991 -1431 -26 288 347 28
+vfx/ambient/smoke/smk_plume_black_xsml -3008 -1520 -58 285 359 27
+vfx/moments/mp_ca_impact/vfx_wire_box_sparks -2201 182 10 317 176 2
+vfx/moments/mp_ca_impact/vfx_fire_sm -2229 187 5 345 173 0
+vfx/ambient/smoke/smk_plume_black_xsml -2968 14 147 274 271 15
+vfx/ambient/smoke/smk_plume_black_xsml -2892 -53 149 274 271 15
+vfx/moments/mp_ca_impact/vfx_smoke_med -2557 726 109 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -1866 32 48 294 0 -1
+vfx/moments/mp_ca_impact/vfx_smoke_med -2719 -628 115 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -3655 -1059 89 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -3625 -557 80 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -4940 -471 64 272 270 71
+vfx/moments/mp_ca_impact/vfx_smoke_med -5515 -558 99 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -5347 428 101 273 143 -154
+vfx/moments/mp_ca_impact/vfx_smoke_med -5810 343 88 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -5736 -359 61 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -5616 693 94 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -3297 548 119 270 357 36
+vfx/moments/mp_ca_impact/vfx_smoke_med -4274 119 44 281 309 13
+vfx/moments/mp_ca_impact/vfx_smoke_med -5289 -147 93 271 287 71
+vfx/moments/mp_ca_impact/vfx_smoke_med -5202 218 46 274 289 39
+vfx/moments/mp_ca_impact/vfx_smoke_med -4136 -660 69 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -2953 31 71 270 0 0
+vfx/moments/mp_ca_impact/vfx_smoke_med -4381 -1054 65 270 0 0
+vfx/moments/mp_ca_impact/vfx_fire_sm -4879 61 33 286 156 178
+vfx/ambient/smoke/smk_plume_black_xsml -4880 73 44 288 348 10
+vfx/moments/mp_ca_impact/vfx_fire_sm -3953 -104 44 277 39 -67
+vfx/ambient/smoke/smk_plume_black_xsml -3940 -107 49 315 350 1
+vfx/moments/mp_ca_impact/vfx_steam_rising -3460 -1670 -22 271 256 77
+vfx/moments/mp_ca_impact/vfx_steam_rising -2673 1345 -291 276 322 40
+vfx/moments/mp_ca_impact/vfx_steam_rising -6531 1097 -283 276 185 -175
+vfx/moments/mp_ca_impact/vfx_steam_rising -6582 -1250 -278 272 108 -127
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg -8589 -12767 -561 270 0 -0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg -14092 -13490 -452 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg -6462 -17809 -436 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg 11 -16554 -273 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg -21214 -2214 -631 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg -10149 15391 -422 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg -18681 15370 -107 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg 8292 12460 -449 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg 3323 13604 -484 270 0 0
+# (pass 9: far effect without a ship model removed) vfx/moments/mp_chasm/vfx_smk_build_dmg_chasm_bg -9889 19844 -638 279 4 0
+vfx/moments/mp_ca_impact/vfx_steam_rising -4565 -1545 -450 271 149 -144
+vfx/moments/mp_ca_impact/vfx_steam_rising -5266 1602 -347 288 267 93
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance 4388 13116 -545 274 188 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance -12050 15687 -394 301 79 112
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance -754 -18092 -395 277 345 180
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_ca_impact/vfx_fire_distance -1519 -17955 -576 283 345 180
+vfx/moments/mp_ca_impact/vfx_steam_rising -1081 -1444 -443 273 190 175
+vfx/moments/mp_ca_impact/vfx_steam_rising -3253 1421 -509 273 322 38
+vfx/moments/mp_ca_impact/vfx_steam_rising -6056 -1461 -263 271 149 -169
+vfx/moments/mp_ca_impact/vfx_smoke_med -1294 -285 60 290 355 6
+vfx/moments/mp_ca_impact/vfx_smoke_med -1820 -282 80 270 360 -1
+vfx/moments/mp_ca_impact/vfx_fire_med -1374 -314 45 280 228 116
+vfx/moments/mp_ca_impact/vfx_fire_med -4943 -70 79 279 291 72
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_boat_wake -58 -18360 -714 0 180 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_boat_wake -10701 16080 -670 0 180 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_boat_wake -21482 -2506 -695 357 180 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_boat_wake -10482 20165 -710 0 180 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_boat_wake -9126 -13552 -715 0 180 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_boat_wake 8665 13595 -701 0 180 0
+vfx/ambient/lights/vfx_glow_green_light_30_nolight -5473 906 209 270 7 -84
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -8535 -13084 -776 6 160 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 163 -17808 -763 3 160 -0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -10292 15930 -781 0 205 0
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 8435 13172 -832 0 200 0
+vfx/moments/mp_pirate/vfx_pipe_pour -4121 -1861 14 0 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour -4721 -1708 4 0 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour_splash -4711 -1712 -76 270 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour_splash -4728 -1696 -76 270 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour_splash -4106 -1847 -76 270 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour_splash -4135 -1857 -76 270 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour_splash -4709 -1716 -76 270 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour_splash -4733 -1689 -76 270 0 0
+vfx/ambient/lights/vfx_glow_red_light_100_nolight -3974 -1131 1382 270 0 0
+vfx/ambient/lights/vfx_glow_red_light_100_nolight -3972 -1898 1382 270 0 0
+vfx/ambient/lights/vfx_glow_red_light_100_nolight -4836 -1514 828 270 0 0
+vfx/ambient/lights/vfx_glow_red_light_100_nolight -2969 -63 177 270 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour -5944 177 46 270 0 -178
+vfx/ambient/lights/vfx_godray_short_animated -5353 1117 93 327 150 73
+fx/misc/light_glow_industrial -5063 861 160 90 4 -176
+fx/misc/light_glow_industrial -5062 925 159 90 4 -176
+fx/misc/light_glow_industrial -5061 987 159 90 4 -176
+fx/misc/light_glow_industrial -5151 988 158 90 4 -176
+fx/misc/light_glow_industrial -5151 861 159 90 4 -176
+fx/misc/light_glow_industrial -5149 927 158 90 4 -176
+fx/misc/light_glow_industrial -5235 985 159 90 4 -176
+fx/misc/light_glow_industrial -5233 861 159 90 4 -176
+fx/misc/light_glow_industrial -5231 926 159 90 4 -176
+fx/misc/light_glow_industrial -5311 987 159 90 4 -176
+fx/misc/light_glow_industrial -5310 862 159 90 4 -176
+fx/misc/light_glow_industrial -5312 926 159 90 4 -176
+vfx/moments/mp_ca_behemoth/pipe_seam_steam -2893 -45 148 358 50 -179
+vfx/moments/mp_ca_behemoth/pipe_seam_steam -2975 16 150 358 50 -179
+vfx/moments/mp_pirate/vfx_pipe_pour -4721 -1708 -76 270 0 0
+vfx/moments/mp_pirate/vfx_pipe_pour -4116 -1857 -76 270 0 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -522 899 -728 357 177 25
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -1605 906 -748 357 177 25
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 542 -1017 -716 3 187 -6
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -541 -1113 -714 3 174 -16
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -1470 -1083 -739 3 177 -15
+# (pass 9: far fire glow / wake without a ship model removed) vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -486 -17870 -765 3 160 -0
+vfx/ambient/lights/vfx_glow_amber_light_100_blinker_nolight -2311 -377 94 270 0 0
+vfx/ambient/lights/vfx_glow_amber_light_100_blinker_nolight -2310 -246 95 270 0 0
+vfx/ambient/lights/vfx_glow_amber_light_100_blinker_nolight -2310 321 94 270 0 0
+vfx/moments/mp_ca_impact/vfx_fire_distance -3977 47 62 270 0 0
+vfx/moments/mp_ca_impact/vfx_fire_distance -4942 -87 62 270 0 0
+vfx/moments/mp_ca_impact/vfx_fire_med -3990 30 60 278 120 0
+vfx/moments/mp_ca_impact/vfx_fire_med -4960 -60 60 285 40 0
+# (pass 11) hull-side foam: wakes along the waterline both sides, every ~1100 units
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -6000 -947 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -6000 869 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -4900 -947 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -4900 869 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -3800 -947 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -3800 869 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -2700 -947 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -2700 869 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -1600 -947 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -1600 869 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -500 -947 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake -500 869 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 600 -873 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 600 806 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 1700 -627 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 1700 581 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 2800 -381 -728 0 180 0
+vfx/moments/mp_pirate/vfx_ghost_ship_decent_wake 2800 356 -728 0 180 0

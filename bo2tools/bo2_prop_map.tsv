@@ -1,0 +1,3 @@
+# BO2 static model name (regex on the name without folder, first match wins)	H1 model	dump zone with it
+# Exact same-name assets (IW props BO2 reused, remastered in MWR) are matched automatically; list extra pairs here.
+^cs_cargoship_wall_light_on$	cs_cargoship_wall_light_on	mp_cargoship
