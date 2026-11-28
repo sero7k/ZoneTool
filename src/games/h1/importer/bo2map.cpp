@@ -16,6 +16,8 @@
 #include <cfloat>
 #include <cstdlib>
 #include <cmath>
+#include <map>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <fstream>
@@ -142,6 +144,9 @@ namespace zonetool::h1::importer
 			// <stem>.col: optional Black Ops II collision (codlegacyclient t6_col_dump: the clip map's mesh,
 			// world brushes and static model boxes); used instead of the render triangles when present.
 			std::string col_path;
+			// <stem>.lgrid: optional per-area light grid (bake/lightgrid.py): one L2 harmonic per
+			// 128 x 128 x 64 block; replaces the single-node grid so models take local light. BO2_NO_LGRID=1 skips it.
+			std::string lgrid_path;
 		};
 
 		void read_probes_and_grid(const std::string& stem_path, map_in& m)
@@ -166,6 +171,239 @@ namespace zonetool::h1::importer
 				if (v.size() == 56) { m.grid56 = v; ZONETOOL_INFO("importmap: directional light grid (56 directions)"); }
 			}
 			if (std::filesystem::exists(stem_path + ".col")) m.col_path = stem_path + ".col";
+			if (std::filesystem::exists(stem_path + ".lgrid")) m.lgrid_path = stem_path + ".lgrid";
+		}
+
+		struct lgrid_block
+		{
+			float sh[9][3];
+		};
+
+		std::vector<unsigned char> encode_palette_entry(const float (&sh)[9][3])
+		{
+			std::vector<unsigned char> out;
+			int exponent[3];
+			for (int c = 0; c < 3; c++)
+			{
+				float m = std::max(sh[0][c], 0.0f) * 1.004f;
+				for (int j = 1; j < 9; j++) m = std::max(m, std::abs(sh[j][c]) * 1.004f);
+				exponent[c] = std::clamp(static_cast<int>(std::ceil(std::log2(std::max(m, 1e-3f)))), -8, 23);
+			}
+			const auto header = static_cast<unsigned short>(((exponent[0] + 8) << 10) | ((exponent[1] + 8) << 5) | (exponent[2] + 8));
+			out.push_back(static_cast<unsigned char>(header & 0xFF));
+			out.push_back(static_cast<unsigned char>(header >> 8));
+			for (int c = 0; c < 3; c++)
+			{
+				const float scale = std::ldexp(1.0f, exponent[c]);
+				out.push_back(static_cast<unsigned char>(std::clamp(std::lround(std::max(sh[0][c], 0.0f) * 256.0f / scale), 0L, 255L)));
+				for (int j = 1; j < 9; j++)
+				{
+					out.push_back(static_cast<unsigned char>(std::clamp(std::lround((sh[j][c] + scale) * 128.0f / scale), 0L, 255L)));
+				}
+			}
+			return out;
+		}
+
+		class bit_writer
+		{
+		public:
+			void put(unsigned int value, int bits)
+			{
+				for (int b = 0; b < bits; b++, this->position++)
+				{
+					if ((this->position >> 3) >= this->bytes.size()) this->bytes.push_back(0);
+					if ((value >> b) & 1) this->bytes[this->position >> 3] |= static_cast<unsigned char>(1u << (this->position & 7));
+				}
+			}
+
+			void align()
+			{
+				this->position = (this->position + 7) & ~7u;
+				while ((this->position >> 3) > this->bytes.size()) this->bytes.push_back(0);
+			}
+
+			std::vector<unsigned char> bytes;
+			unsigned int position = 0;
+		};
+
+		bool build_light_grid(const std::string& path, zonetool::h1::GfxLightGrid& grid, utils::memory::allocator& allocator)
+		{
+			std::ifstream f(path, std::ios::binary);
+			char magic[8]{};
+			int block_min[3]{};
+			unsigned int dims[3]{};
+			float fallback[9][3]{};
+			f.read(magic, 8);
+			f.read(reinterpret_cast<char*>(block_min), sizeof(block_min));
+			f.read(reinterpret_cast<char*>(dims), sizeof(dims));
+			f.read(reinterpret_cast<char*>(fallback), sizeof(fallback));
+			if (!f || std::memcmp(magic, "H1LGRD01", 8) != 0 || !dims[0] || !dims[1] || !dims[2])
+			{
+				ZONETOOL_WARNING("importmap: %s is not a light grid file", path.c_str());
+				return false;
+			}
+			const unsigned int largest = std::max({ dims[0], dims[1], dims[2] });
+			const int depth = 6; // 128 blocks a side, the depth the IW7 -> H1 converter's grid runs at in game
+			if (largest > (1u << (depth + 1)))
+			{
+				ZONETOOL_WARNING("importmap: light grid of %u x %u x %u blocks is too large", dims[0], dims[1], dims[2]);
+				return false;
+			}
+
+			std::vector<unsigned char> palette_bits;
+			std::vector<int> palette_address;
+			std::map<std::vector<unsigned char>, unsigned int> palette_index;
+			const auto add_entry = [&](const float (&sh)[9][3]) -> unsigned int
+			{
+				auto bytes = encode_palette_entry(sh);
+				const auto found = palette_index.find(bytes);
+				if (found != palette_index.end()) return found->second;
+				if (palette_address.size() >= 0xFFFF) return 0;
+				const auto index = static_cast<unsigned int>(palette_address.size());
+				palette_address.push_back(static_cast<int>(palette_bits.size()));
+				palette_bits.insert(palette_bits.end(), bytes.begin(), bytes.end());
+				palette_index.emplace(std::move(bytes), index);
+				return index;
+			};
+			add_entry(fallback); // missingGridColorIndex 0
+
+			std::map<unsigned int, unsigned int> blocks; // x | y << 10 | z << 20 -> palette index
+			unsigned int overflow = 0;
+			for (unsigned int z = 0; z < dims[2]; z++)
+				for (unsigned int y = 0; y < dims[1]; y++)
+					for (unsigned int x = 0; x < dims[0]; x++)
+					{
+						float present = 0.0f;
+						lgrid_block block{};
+						f.read(reinterpret_cast<char*>(&present), sizeof(present));
+						f.read(reinterpret_cast<char*>(block.sh), sizeof(block.sh));
+						if (!f)
+						{
+							ZONETOOL_WARNING("importmap: %s is truncated", path.c_str());
+							return false;
+						}
+						if (present <= 0.0f) continue;
+						const auto index = add_entry(block.sh);
+						if (!index) overflow++;
+						blocks[x | (y << 10) | (z << 20)] = index;
+					}
+			if (blocks.empty()) return false;
+
+			const auto key_shift = [](unsigned int key, int shift)
+			{
+				return ((key & 0x3FF) >> shift) | ((((key >> 10) & 0x3FF) >> shift) << 10) | ((((key >> 20) & 0x3FF) >> shift) << 20);
+			};
+			const auto child_key = [](unsigned int key, unsigned int octant)
+			{
+				const unsigned int x = ((key & 0x3FF) << 1) | (octant & 1);
+				const unsigned int y = (((key >> 10) & 0x3FF) << 1) | ((octant >> 1) & 1);
+				const unsigned int z = (((key >> 20) & 0x3FF) << 1) | ((octant >> 2) & 1);
+				return x | (y << 10) | (z << 20);
+			};
+
+			// level k node key = block >> (depth - k + 1); the level-depth nodes hold the leaf records (R_LightgridLookup 0x6d8120)
+			std::vector<std::set<unsigned int>> levels(depth + 2);
+			for (const auto& [key, index] : blocks)
+			{
+				for (int k = 0; k <= depth; k++) levels[k].insert(key_shift(key, depth - k + 1));
+				levels[depth + 1].insert(key);
+			}
+
+			bit_writer leaves;
+			std::map<unsigned int, unsigned int> leaf_offset;
+			unsigned int leaf_blocks = 0;
+			for (const auto leaf : levels[depth])
+			{
+				leaf_offset[leaf] = leaves.position >> 3;
+				std::vector<unsigned int> present;
+				for (unsigned int octant = 0; octant < 8; octant++)
+				{
+					if (blocks.count(child_key(leaf, octant))) present.push_back(octant);
+				}
+				leaves.put(0, 8);
+				for (std::size_t i = 0; i < present.size(); i++) leaves.put(3, 7); // block size in bytes
+				leaves.align();
+				for (const auto octant : present)
+				{
+					leaves.put(0x02, 8); // block flags: colour value follows
+					leaves.put(blocks[child_key(leaf, octant)] + 1, 16); // raw index = value - 1 (R_DecodeLeafIndexRaw 0x69e5f0)
+					leaves.align();
+				}
+				leaf_blocks += static_cast<unsigned int>(present.size());
+			}
+
+			std::vector<unsigned int> nodes = { 0 };
+			std::vector<unsigned int> level_keys = { 0 };
+			std::vector<unsigned int> level_index = { 0 };
+			for (int k = 0; k <= depth; k++)
+			{
+				std::vector<unsigned int> next_keys, next_index;
+				for (std::size_t i = 0; i < level_keys.size(); i++)
+				{
+					unsigned int mask = 0;
+					std::vector<unsigned int> children;
+					for (unsigned int octant = 0; octant < 8; octant++)
+					{
+						const auto child = child_key(level_keys[i], octant);
+						if (!levels[k + 1].count(child)) continue;
+						mask |= 1u << octant;
+						children.push_back(child);
+					}
+					if (k == depth)
+					{
+						nodes[level_index[i]] = (mask << 24) | (leaf_offset[level_keys[i]] & 0xFFFFFF);
+						continue;
+					}
+					nodes[level_index[i]] = (mask << 24) | static_cast<unsigned int>(nodes.size());
+					for (const auto child : children)
+					{
+						next_keys.push_back(child);
+						next_index.push_back(static_cast<unsigned int>(nodes.size()));
+						nodes.push_back(0);
+					}
+				}
+				level_keys = std::move(next_keys);
+				level_index = std::move(next_index);
+			}
+
+			const int blocks_per_side = 1 << (depth + 1);
+			for (auto i = 0; i < 3; i++)
+			{
+				auto& tree = grid.tree[i];
+				tree.index = static_cast<unsigned char>(i);
+				tree.maxDepth = static_cast<unsigned char>(depth);
+				tree.nodeCount = static_cast<int>(nodes.size());
+				tree.leafCount = static_cast<int>(leaf_blocks);
+				tree.coordMinGridSpace[0] = block_min[0];
+				tree.coordMinGridSpace[1] = block_min[1];
+				tree.coordMinGridSpace[2] = block_min[2];
+				tree.coordMaxGridSpace[0] = block_min[0] + blocks_per_side * 4 - 1;
+				tree.coordMaxGridSpace[1] = block_min[1] + blocks_per_side * 4 - 1;
+				tree.coordMaxGridSpace[2] = block_min[2] + blocks_per_side - 1;
+				tree.coordHalfSizeGridSpace[0] = blocks_per_side * 2;
+				tree.coordHalfSizeGridSpace[1] = blocks_per_side * 2;
+				tree.coordHalfSizeGridSpace[2] = blocks_per_side / 2;
+				tree.defaultColorIndexBitCount = 16;
+				tree.defaultLightIndexBitCount = 10;
+				tree.p_nodeTable = allocator.allocate_array<unsigned int>(nodes.size());
+				std::memcpy(tree.p_nodeTable, nodes.data(), nodes.size() * sizeof(unsigned int));
+				tree.leafTableSize = static_cast<int>(leaves.bytes.size());
+				tree.p_leafTable = allocator.allocate_array<unsigned char>(leaves.bytes.size());
+				std::memcpy(tree.p_leafTable, leaves.bytes.data(), leaves.bytes.size());
+			}
+
+			grid.paletteEntryCount = static_cast<unsigned int>(palette_address.size());
+			grid.paletteEntryAddress = allocator.allocate_array<int>(palette_address.size());
+			std::memcpy(grid.paletteEntryAddress, palette_address.data(), palette_address.size() * sizeof(int));
+			grid.paletteBitstreamSize = static_cast<unsigned int>(palette_bits.size());
+			grid.paletteBitstream = allocator.allocate_array<unsigned char>(palette_bits.size());
+			std::memcpy(grid.paletteBitstream, palette_bits.data(), palette_bits.size());
+			grid.rangeExponent8BitsEncoding = 23; // every channel in the 8-bit form (R_GetLightgridColorsFromIndices 0x6d66a0)
+			grid.rangeExponent12BitsEncoding = 23;
+			grid.rangeExponent16BitsEncoding = 23;
+			grid.missingGridColorIndex = 0;
+			ZONETOOL_INFO("importmap: light grid %u blocks (%u x %u x %u), depth %d, %zu nodes, %zu palette entries%s", leaf_blocks, dims[0], dims[1], dims[2], depth, nodes.size(), palette_address.size(), overflow ? " (palette full, some blocks on the fallback)" : "");
+			return true;
 		}
 
 		std::string safe_name(const std::string& in)
@@ -1293,6 +1531,10 @@ namespace zonetool::h1::importer
 				tree.p_nodeTable = allocator.allocate_array<unsigned int>(1);
 				tree.leafTableSize = 4;
 				tree.p_leafTable = allocator.allocate_array<unsigned char>(4);
+			}
+			if (!in.lgrid_path.empty() && std::getenv("BO2_NO_LGRID") == nullptr)
+			{
+				build_light_grid(in.lgrid_path, w->lightGrid, allocator);
 			}
 
 			// One brush model (the world).
