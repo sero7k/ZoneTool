@@ -1,81 +1,135 @@
-# x64 ZoneTool
-A fastfile unlinker and linker for various x64 Call of Duty titles. 
-
-- If you are interested in porting maps or assets from IW3/4/5, check <b>[Aurora's Map Porting IW3/4/5 -> H1](https://docs.auroramod.dev/map-porting-iw5)</b>
-- If you are interested in porting maps or assets from newer Call of Duty games like H1, S1, H1, H2, or IW7, between each other, check <b>[Aurora's Map Porting (S1 <-> H1 <-> H2)](https://docs.auroramod.dev/map-porting-s1)</b>
+# x64 ZoneTool (sero7k fork)
+A fastfile unlinker and linker for x64 Call of Duty titles, based on [Aurora's x64-zt](https://github.com/auroramod/x64-zt) (`develop`, x64-zt 2), plus our map work for the CoD Legacy client. It reads fastfiles straight from the game folder and never runs the game.
 
 ## What's new in this fork
-Everything below is added on top of upstream [auroramod/x64-zt](https://github.com/auroramod/x64-zt).
+On top of Aurora's x64-zt:
 
-### Black Ops II -> H1 map import (`importmap`) — new
+### Black Ops II -> MWR map import (`importmap`) — new
 - Imports a whole BO2 map from the files CodLegacy's exporter writes: world, spawns and entities, materials and real BO2 textures, sky.
-- **Collision:** uses BO2's own clip mesh, world brushes and prop boxes (`<stem>.col`), so players walk on the deck, stairs and props instead of the render mesh.
-- **Lighting:** the map's own lightmap coordinates (`.h1lmuv`), BO2 reflection probes (`.probes`), and a directional light grid for models taken from BO2's light grid (`.grid56`).
-- Surfaces now cast sun shadows and use stock-style surface data, ocean surfaces set up like `mp_bog_summer`.
-- Also runs from the command line: `zonetool -importmap <file.h1map>`.
+- **Collision:** BO2's own clip mesh, world brushes and prop boxes (`<stem>.col`), so players walk on decks, stairs and props.
+- **Lighting:** the map's own lightmap coordinates, BO2 reflection probes, and directional model lighting from BO2's light grid; surfaces cast sun shadows.
 - Working in game on **`mp_carrier`**.
 
-### Infinite Warfare -> H1 map port — improved
+### Infinite Warfare -> MWR map port — improved
 - Full map port used for `mp_flip`: world, collision, entities, materials, models, reflection probes, glass and effects.
-- Effects (particle systems approximated as H1 effects, flares as sprites, glass shards), reflective tower glass, IW7 metalness and gloss.
-- Per-area model lighting through a real H1 light grid tree built from the baked lightmap; sun and emissives on IW7's tone curve.
-- Adaptive collision detail; tools to bake spot lights and lightmaps.
+- Effects (particle systems as H1 effects, flares, glass shards), reflective glass, IW7 metalness and gloss, per-area model lighting, lightmap baking tools.
 
-### Black Ops III and newer games — new
-- Black Ops III image and material dumping, with H1 conversion.
-- ACTS bridge ([atian-cod-tools](https://github.com/ate47/atian-cod-tools)): dump BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6 and BO7; link BO3 / BO4 / Cold War zones; GSC and hash tools.
+### Newer games through ACTS — new
+- `acts` command runs [atian-cod-tools](https://github.com/ate47/atian-cod-tools): dump BO3, BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6 and BO7; link BO3 / BO4 / Cold War zones; GSC and hash tools.
 
-### Other
-- `ZT_DUMP_REFS` env var: H1 dumps also pull in the referenced assets (for example a map's ocean material and techset).
-- CI builds every commit on `main` and publishes it as the [`latest`](https://github.com/sero7k/ZoneTool/releases/tag/latest) release.
+### From Aurora (merged in)
+- x64-zt 2: standalone, reads fastfiles directly (`-game <name> -path <folder>`).
+- New games: WWII (S2), Modern Warfare 2019 (IW8), Vanguard (S4), Cold War (T9, experimental).
 
 ## Converting to MWR (H1)
 What each game can be converted to *Modern Warfare Remastered* with today, what we plan to add, and how hard it is.
 
 | Game | Converts to MWR now | Planned | How hard |
 |---|---|---|---|
-| **Ghosts** (IW6) | Maps and assets | — | Done (upstream) |
-| **Advanced Warfare** (S1) | Maps and assets | — | Done (upstream) |
-| **MW2 Campaign Remastered** (H2) | Maps and assets | — | Done (upstream) |
-| **WWII** (S2) | Maps and assets, partly (`v2` only) | Bring to the merged version | Easy |
+| **Ghosts** (IW6) | Maps and assets | — | Done (Aurora) |
+| **Advanced Warfare** (S1) | Maps and assets | — | Done (Aurora) |
+| **MW2 Campaign Remastered** (H2) | Maps and assets | — | Done (Aurora) |
+| **WWII** (S2) | Maps and assets, partly | — | Easy (Aurora is finishing it) |
 | **Infinite Warfare** (IW7) | Maps (`mp_flip` ported) | Better lighting and glass | Medium |
 | **Black Ops II** (T6) | Maps (`mp_carrier` working) | Every BO2 map, then menus and UI, then weapons | Maps medium (~3–8 h each now the pipeline exists); weapons and animations hard |
-| **Black Ops III** (T7) | Images and materials only | Maps later | Hard: no map converter yet, the map format needs to be worked out |
+| **CoD4, MW2, MW3** (IW3/4/5) | Through [Aurora's IW3/4/5 tools](https://docs.auroramod.dev/map-porting-iw5) | Aurora plans dumping in x64-zt | Done (other tool) |
 | **World at War** (T4) | Dome ported with our own scripts | Move the steps into ZoneTool | Medium |
-| **Modern Warfare 2019** (IW8) | No (only to IW7, `v2`) | Not yet | Very hard: newer renderer and materials |
-| **Vanguard** (S4) | No (dump and convert to MW2019, `v2` only) | Ideas only | Very hard: would go S4 -> IW8 -> IW7 -> H1, or a new converter |
-| **BO4, Cold War, MWII, MWIII, BO6, BO7** | No (can be dumped through ACTS) | Ideas only | Very hard: newer engines, streamed assets, different materials and lighting |
+| **Black Ops III** (T7) | Images and materials (`v1` branch only) | Maps later | Hard: no map converter yet, the map format needs to be worked out |
+| **Modern Warfare 2019** (IW8) | No (only to IW7) | Not yet | Very hard: newer renderer and materials |
+| **Vanguard** (S4) | No (only to MW2019) | Ideas only | Very hard: would go S4 -> IW8 -> IW7 -> H1, or a new converter |
+| **Cold War** (T9) | No (experimental dumping, to MW2019) | Ideas only | Very hard: newer engine and materials |
+| **BO4, MWII, MWIII, BO6, BO7** | No (can be dumped through ACTS) | Ideas only | Very hard: newer engines, streamed assets, different materials and lighting |
 
-- **How hard:** Easy = mostly done, needs tidying. Medium = works, needs per-map polish. Hard = big pieces still missing. Very hard = a new converter from scratch.
-- CoD4, MW2 and MW3 (IW3/4/5) maps are ported with [Aurora's IW3/4/5 tools](https://docs.auroramod.dev/map-porting-iw5), not this repo.
-- `main` and `v2` are being merged into one version. Until then, WWII, MW2019 and Vanguard are only on [`v2`](https://github.com/sero7k/ZoneTool/tree/v2); everything else is on `main`.
-- BO2 import details: [docs/BO2_IMPORT.md](docs/BO2_IMPORT.md).
+**How hard:** Easy = mostly done, needs tidying. Medium = works, needs per-map polish. Hard = big pieces still missing. Very hard = a new converter from scratch.
 
-## How to use
-Check out the [Aurora Zonetool Basics](https://docs.auroramod.dev/zonetool-basics) for useful guides & information on how to port maps and use zonetool.
+## Quick start
 
-## Commands
-* `loadzone <zone>`: Loads a zone
-* `unloadzones`: Unloads zones
-* `verifyzone <zone>`: Lists assets in a zone
-* `dumpzone <zone>`: Dumps a zone
-* `dumpzone <target game> <zone> <asset filter>`: Dumps a zone converting assets for a specific game
-* `dumpasset <type> <name>`: Dumps a single assset
-* `dumpmap <map>`: Dumps all required assets for a map
-* `dumpmap <target game> <map> <asset filter> <skip common>`: Dumps and converts all required assets for a map
-* `importmap <file.h1map> [name]`: Imports a Black Ops II map (exported by CodLegacy's `bo2_h1_export`) as H1 map assets (H1 module)
+1. Put `zonetool.exe` in the game folder, next to the game exe. x64-zt selects the game automatically.
+2. Dump a zone:
 
-  ### Definitions
-  * `asset filter`: A filter specifying all the asset types that should be dumped, if not specified or empty it will dump all asset types.
-  Asset types are separated by **commas**, **`_`** indicates and empty filter.   
-    * Example: `dumpzone h1 mp_clowntown3 sound,material,techset,rawfile`
-    * Example: `dumpmap h1 mp_clowntown3 _ true`
-  * `skip common`: Skips common zones when dumping a map, can be `true` or `false`.
-  * `target game`: The game to convert the assets to.
+   ```bash
+   zonetool.exe dumpzone mp_shipment
+   ```
 
-## ACTS bridge (BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6, BO7)
-ZoneTool can run [atian-cod-tools](https://github.com/ate47/atian-cod-tools) (vendored in `deps/atian-cod-tools`) for games without an in-process module, plus the ACTS linkers, GSC and hash tools:
-* `zonetool -dumpzone <game> <zone>`: `bo3`, `bo4`, `cw`, `mw19`, `vg`, `mwii`, `mwiisp`, `mwiii`, `mwiiisp`, `bo6`, `bo6sp`, `bo7`
-* `zonetool -linkzone <bo3|bo4|cw> <dir>`, `-gscdecompile`, `-gsccompile`, `-hashlookup`, `-acts <raw args>`
+   The assets and `mp_shipment.csv` go to `dump/mp_shipment/`.
+3. Put the asset files in `zonetool/<name>/` and the asset list (source CSV for your mod/map) in `zone_source/<name>.csv`. A dump CSV is a good start, or `generatecsv` command for maps. Then build:
 
-See [docs/acts-integration.md](docs/acts-integration.md) and [docs/bo3-support.md](docs/bo3-support.md).
+   ```bash
+   zonetool.exe buildzone <name>
+   ```
+
+   The result is `zone/<name>.ff` in the game folder.
+
+> [!CAUTION]
+> `buildzone` replaces a zone that has the same name. Back up the stock zone first, or give your zone a new name.
+
+The [x64-zt documentation](https://docs.auroramod.dev/x64-zt) has every command and option, conversion with `--target`, the folder layout and the common errors.
+
+## Building
+
+You can use `generate.bat`, which uses Visual Studio 2022/2026 and Windows to do so. You can supply specific games through the generate file to include games you're not actively working on:
+
+```bash
+generate.bat --games=h1,iw7
+```
+
+| Option | Effect |
+|---|---|
+| `--games=<list>` | Games to build: `all` (default), or a list such as `h1,s2,iw7` |
+| `--no-convert` | Skips the converter projects |
+| `--copy-to=<folder>` | Copies `zonetool.exe` to this folder after each build |
+
+Then open `build/x64-zt.sln`, or build Release x64 with MSBuild. The result is `build/bin/x64/Release/zonetool.exe`. A converter builds only when its source and target games are both selected.
+
+## This fork
+
+This fork is x64-zt (`develop`) plus the map work for the CoD Legacy client.
+
+### Black Ops II map import (H1)
+
+`importmap` reads the `.h1map` export of the CoD Legacy tool (`bo2_h1_export`) and writes the H1 map assets to `dump/<map>/`:
+`maps/mp/<map>.d3dbsp.*` (gfx, clip, com, phys, fx, glass, ents), one material per Black Ops II material (`materials/wc/bo2_*.json`), the images it copies and `maps/mp/<map>.materials.csv` (the material lines for `zone_source/<map>.csv`).
+
+```bash
+zonetool.exe importmap bo2_import/carrier/mp_carrier.h1map -game h1 -path <MWR folder>
+```
+
+The importer also reads these files next to the `.h1map` when they exist:
+
+| File | Use |
+|---|---|
+| `<stem>.mats.tsv` | material kinds and image names |
+| `<stem>.h1lmuv` | the map's own lightmap coordinates |
+| `<stem>.probes` | reflection probes (nearest probe per surface) |
+| `<stem>.grid` / `<stem>.grid56` | light grid colour / 56 directional colours for models |
+| `<stem>.col` | Black Ops II collision (mesh, world brushes, static model boxes) |
+| `<map>.ents` | spawn and script entities |
+
+Environment switches: `BO2_TRI_BUDGET` (collision triangle budget), `BO2_COL_RENDER` (collision from the drawn triangles, not `.col`), `BO2_COL_NO_COMPACT`, `BO2_COL_BOUNDS`.
+
+### IW7 -> H1 maps
+
+`dumpzone <map> --target h1 -game iw7` also converts the map: gfx world, clip map (with physics world, fx and glass world), com world, map ents, effects and particle systems (written when the zone ends) and createfx. `tools/iw7_lightbake.py`, `tools/iw7_lmdir.py` and `tools/iw7_lmtone.py` bake lightmaps from the exported lights.
+
+### atian-cod-tools (ACTS)
+
+`zonetool.exe acts ...` runs [ACTS](https://github.com/ate47/atian-cod-tools) (`acts.exe`) for games x64-zt does not read (BO3, BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6, BO7): fastfile dumps, linkers, GSC tools and hash lookup. `zonetool.exe acts help` lists the commands and games.
+
+ACTS is not linked into zonetool.exe. `deps/atian-cod-tools` is a submodule with `update = none`, so `generate.bat` skips it. `tools\build_acts.bat` builds it (CMake, vcpkg) into `build\bin\x64\Release\acts\`. A release `acts.exe` in `acts\` next to zonetool.exe, `-actspath <file>` or the `ZONETOOL_ACTS` variable also work. ACTS is GPL-3.0 or MIT, so keep its `LICENSE.md` and `licenses\` with the binaries.
+
+ACTS dumps scripts and data tables, not images, models or worlds.
+
+### v1
+
+The old v1 ZoneTool of this fork (hooks the game exe, in-process Black Ops III dumpers, `ZT_DUMP_REFS`, old `-importmap` / `-buildzone` flags) is kept on the [`v1`](https://github.com/sero7k/ZoneTool/tree/v1) branch. Its builds are published as the [`v1-latest`](https://github.com/sero7k/ZoneTool/releases/tag/v1-latest) release, which the current Carrier build scripts use until they move to the new commands.
+
+## Guides
+
+- [x64-zt](https://docs.auroramod.dev/x64-zt)
+- [Zonetool Extra](https://docs.auroramod.dev/zonetool-extra)
+- [Map porting IW3/4/5 → H1](https://docs.auroramod.dev/map-porting-iw5)
+- [Map porting S1 ↔ H1 ↔ H2](https://docs.auroramod.dev/map-porting-s1)
+- [Weapon porting H1 → S2](https://docs.auroramod.dev/h1-to-s2-weapon)
+- [Weapon porting IW7 → IW8](https://docs.auroramod.dev/iw7-to-iw8-weapon)
+
+If you get stuck, feel free to ask the community in the [Aurora Discord server](http://auroramod.dev/discord).

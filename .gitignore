@@ -3,3 +3,19 @@
 build/
 
 generate_custom.bat
+
+docs/
+dump/
+
+re_reference/**/ship_asm.txt
+re_reference/**/ship_asm.txt.*
+!re_reference/**/ship_asm.txt.xz
+re_reference/**/func_index.pkl
+re_reference/**/bytes.txt
+re_reference/**/decomp.txt
+re_reference/**/xrefs.txt
+re_reference/**/struct_offsets.txt
+
+iw8_asset_listing/
+asset_listing/
+/.gsclsp/config.json

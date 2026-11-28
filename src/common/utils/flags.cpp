@@ -1,8 +1,15 @@
 #include "flags.hpp"
 #include "string.hpp"
-#include "nt.hpp"
+#include "win_include.hpp"
 
 #include <shellapi.h>
+
+#include <algorithm>
+#include <cstdlib>
+#include <optional>
+#include <string>
+#include <thread>
+#include <unordered_map>
 
 namespace utils::flags
 {
@@ -111,5 +118,16 @@ namespace utils::flags
 			return default_;
 		}
 		return value.value();
+	}
+
+	unsigned int get_thread_count()
+	{
+		static const auto count = []
+		{
+			const auto value = get_flag("threads");
+			const auto requested = value ? std::strtoul(value->data(), nullptr, 10) : 0ul;
+			return requested ? static_cast<unsigned int>(requested) : std::max(1u, std::thread::hardware_concurrency());
+		}();
+		return count;
 	}
 }

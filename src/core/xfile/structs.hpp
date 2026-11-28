@@ -1,0 +1,322 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+namespace zonetool
+{
+#pragma pack(push, 1)
+	struct XFileHeader
+	{
+		char header[8];
+		std::uint32_t version;
+		std::uint8_t compress;
+		std::uint8_t compressType;
+		std::uint8_t sizeOfPointer;
+		std::uint8_t sizeOfLong;
+		std::uint32_t fileTimeHigh;
+		std::uint32_t fileTimeLow;
+		std::uint32_t imageCount;
+		std::uint64_t baseFileLen;
+		std::uint64_t totalFileLen;
+	};
+
+	template <std::size_t num_streams>
+	struct XZoneMemory
+	{
+		std::uint64_t size;
+		std::uint64_t externalsize;
+		std::uint64_t streams[num_streams];
+	};
+
+	struct XStreamFile
+	{
+		static constexpr std::uint16_t zone_pak_file_index = 96;
+
+		std::uint16_t isLocalized;
+		std::uint16_t fileIndex;
+		char pad[4];
+		std::uint64_t offset;
+		std::uint64_t offsetEnd;
+	};
+
+	struct XStreamFileKey
+	{
+		static constexpr std::uint16_t unresolved_slot = 0xFFFF;
+
+		std::uint64_t hash;
+		std::uint16_t index;
+		std::uint16_t unk_0xA;
+		std::uint8_t isLocalized;
+		std::uint8_t unk_0xD;
+		std::uint16_t slot;
+	};
+
+	struct XStreamFileLocation
+	{
+		static constexpr std::uint16_t fastfile_index = 0;
+		static constexpr std::uint16_t imagefile_pak_flag = 0x8000;
+		static constexpr std::uint16_t pak_index_mask = 0x1FFF;
+		static constexpr std::uint16_t zone_pak_index = imagefile_pak_flag | XStreamFile::zone_pak_file_index;
+
+		std::uint64_t offset;
+		std::uint32_t size;
+		std::uint8_t isLocalized;
+		std::uint8_t unk_0xD;
+		std::uint16_t fileIndex;
+	};
+
+	static_assert(sizeof(XStreamFileLocation) == sizeof(XStreamFileKey));
+
+	struct DB_AuthSignature
+	{
+		unsigned char bytes[256];
+	};
+
+	struct DB_AuthHash
+	{
+		unsigned char bytes[32];
+	};
+
+	struct XPakHeader
+	{
+		char header[8];
+		std::int32_t version;
+		unsigned char unknown[16];
+		DB_AuthHash hash;
+		DB_AuthSignature signature;
+	};
+#pragma pack(pop)
+
+	struct XAssetList
+	{
+		std::int32_t stringCount;
+		std::uint64_t strings;
+		std::int32_t assetCount;
+		std::uint64_t assets;
+		std::uint64_t globals;
+	};
+
+	constexpr std::size_t iw7_block_count = 10;
+
+#pragma pack(push, 1)
+	struct iw7_file_header
+	{
+		char magic[8];
+		std::uint32_t version;
+		std::uint8_t unused;
+		std::uint8_t has_no_image_fastfile;
+		std::uint8_t has_no_shared_fastfile;
+		std::uint8_t unknown;
+		std::uint32_t file_time_high;
+		std::uint32_t file_time_low;
+		std::uint64_t size;
+		std::uint64_t unknown_sizes[2];
+		std::uint64_t block_sizes[iw7_block_count];
+		std::uint64_t unknown_array[8];
+		std::uint32_t shared_stream_hash;
+		std::uint32_t shared_stream_count;
+		std::uint32_t image_stream_hash;
+		std::uint32_t image_stream_count;
+	};
+
+	struct iw7_stream_file
+	{
+		std::uint64_t offset;
+		std::uint64_t offset_end;
+		std::uint16_t file_index;
+		std::uint8_t is_localized;
+		std::uint8_t pad[5];
+	};
+#pragma pack(pop)
+
+	static_assert(sizeof(iw7_file_header) == 0xD0);
+	static_assert(sizeof(iw7_stream_file) == 0x18);
+
+#pragma pack(push, 1)
+	struct s2_file_header
+	{
+		char magic[8];
+		std::uint32_t header_version;
+		std::uint32_t version;
+		std::uint8_t compress;
+		std::uint8_t compress_type;
+		std::uint8_t stream_compress_type;
+		std::uint8_t unknown;
+		std::uint32_t unknown2;
+		std::uint32_t file_time_high;
+		std::uint32_t file_time_low;
+		std::uint32_t stream_key_count;
+	};
+#pragma pack(pop)
+
+	static_assert(sizeof(s2_file_header) == 0x24);
+
+	constexpr std::size_t iw8_block_count = 11;
+	constexpr std::size_t s4_block_count = 10;
+
+#pragma pack(push, 1)
+	struct iw8_file_header
+	{
+		char magic[8];
+		std::uint32_t header_version;
+		std::uint32_t xfile_version;
+		std::uint8_t dash_compress_build;
+		std::uint8_t dash_encrypt_build;
+		std::uint8_t transient_file_type;
+		std::uint8_t pad;
+		std::uint32_t resident_part_size;
+		std::uint32_t resident_hash;
+		std::uint32_t always_loaded_part_size;
+		std::uint64_t size;
+		std::uint64_t preload_walk_size;
+		std::uint64_t block_sizes[iw8_block_count];
+	};
+
+	struct s4_file_header
+	{
+		char magic[8];
+		std::uint32_t header_version;
+		std::uint32_t xfile_version;
+		std::uint8_t dash_compress_build;
+		std::uint8_t dash_encrypt_build;
+		std::uint8_t transient_file_type;
+		std::uint8_t pad;
+		std::uint32_t resident_part_size;
+		std::uint32_t resident_hash;
+		std::uint32_t always_loaded_part_size;
+		std::uint64_t size;
+		std::uint64_t preload_walk_size;
+		std::uint64_t block_sizes[s4_block_count];
+		std::uint64_t unknown[3];
+	};
+
+	template <typename Header>
+	struct patch_header
+	{
+		char magic[8];
+		std::uint32_t version;
+		std::uint32_t diff_version;
+		std::uint64_t dest_window_size;
+		std::uint64_t source_window_size;
+		std::uint64_t diff_window_size;
+		std::uint64_t resident_diff_compressed_size;
+		std::uint64_t resident_diff_size;
+		Header base;
+		Header target;
+	};
+#pragma pack(pop)
+
+	using iw8_patch_header = patch_header<iw8_file_header>;
+	using s4_patch_header = patch_header<s4_file_header>;
+
+	static_assert(sizeof(iw8_file_header) == 0x88);
+	static_assert(sizeof(iw8_patch_header) == 0x148);
+	static_assert(sizeof(s4_file_header) == 0x98);
+	static_assert(sizeof(s4_patch_header) == 0x168);
+
+	enum class t9_chunk : std::uint32_t
+	{
+		version = 0x39CB44F1,
+		platform_data = 0x2C2381CF,
+		build_data = 0x37F9D612,
+		link_result = 0x8578C004,
+		size_data = 0x0F992DFE,
+		block_sizes = 0x66C65056,
+		fastfile_info = 0xC7708CDA,
+	};
+
+	enum class t9_compression : std::uint8_t
+	{
+		none = 0,
+		zlib = 1,
+		zlib_hc = 2,
+		lz4 = 3,
+		lz4_hc = 4,
+		bdelta_uncompressed = 5,
+		bdelta_zlib = 6,
+		bdelta_lzma = 7,
+		oodle_kraken = 8,
+		oodle_mermaid = 9,
+		oodle_selkie = 10,
+		oodle_lzna = 11,
+	};
+
+	constexpr std::size_t t9_block_count = 13;
+	constexpr std::size_t t9_block_size = 0xFFFA0;
+
+#pragma pack(push, 1)
+	struct t9_platform_data
+	{
+		std::uint8_t server;
+		t9_compression compression;
+		std::uint8_t platform;
+		std::uint8_t encrypted;
+	};
+
+	struct t9_size_data
+	{
+		std::uint64_t size;
+		std::uint64_t external_size;
+		std::uint64_t mem_mapped_offset;
+	};
+
+	struct t9_fastfile_info
+	{
+		char name[0x40];
+		std::uint8_t signature[0x100];
+		std::uint8_t aes_iv[0x10];
+	};
+
+	struct t9_stream_header
+	{
+		std::uint32_t compressed_size;
+		std::uint32_t decompressed_size;
+		std::uint32_t aligned_size;
+		std::uint32_t offset;
+	};
+#pragma pack(pop)
+
+	struct t9_patch_header
+	{
+		std::uint32_t size;
+		float version;
+		std::uint32_t flags;
+		std::uint64_t max_dest_window_size;
+		std::uint64_t max_source_window_size;
+		std::uint64_t max_diff_window_size;
+	};
+
+	struct t9_header_chunk
+	{
+		t9_chunk type;
+		std::string data;
+	};
+
+	struct t9_file_header
+	{
+		std::uint32_t version;
+		t9_platform_data platform;
+		t9_size_data size;
+		std::uint64_t block_sizes[t9_block_count];
+		t9_fastfile_info info;
+		std::vector<t9_header_chunk> chunks;
+	};
+
+	static_assert(sizeof(t9_size_data) == 0x18);
+	static_assert(sizeof(t9_fastfile_info) == 0x150);
+	static_assert(sizeof(t9_stream_header) == 0x10);
+	static_assert(sizeof(t9_patch_header) == 0x28);
+
+	enum XFileBlock
+	{
+		XFILE_BLOCK_TEMP = 0x0,
+		XFILE_BLOCK_PHYSICAL = 0x1,
+		XFILE_BLOCK_RUNTIME = 0x2,
+		XFILE_BLOCK_VIRTUAL = 0x3,
+		XFILE_BLOCK_LARGE = 0x4,
+		XFILE_BLOCK_CALLBACK = 0x5,
+		XFILE_BLOCK_SCRIPT = 0x6,
+		MAX_XFILE_COUNT = 0x7,
+	};
+}
