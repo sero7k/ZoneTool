@@ -1,5 +1,6 @@
 #include <std_include.hpp>
 #include "commands.hpp"
+#include "acts.hpp"
 
 namespace zonetool::cli
 {
@@ -71,9 +72,18 @@ namespace zonetool::cli
 				build_zone, build_options},
 			command{"generatecsv", "generatecsv <map> [sp] [--path <dir>]...", "Writes zone_source/<map>.csv from zonetool/<map>/",
 				generate_csv},
+			command{"importmap", "importmap <file.h1map> [name]", "Writes the map assets of a Black Ops II .h1map export to dump/<map>/ (h1)",
+				import_map},
+			command{"acts", "acts <dumpzone|linkzone|gscdecompile|gsccompile|lookup|raw> ...", "Runs atian-cod-tools (acts.exe), see \"acts help\"",
+				run_acts},
 		};
 
 		return list;
+	}
+
+	void run_acts(const settings&, const std::span<const std::string> args)
+	{
+		acts::run_command({args.begin(), args.end()});
 	}
 
 	bool execute(const settings& settings, const std::span<const std::string> all_args)

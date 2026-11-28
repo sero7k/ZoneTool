@@ -14,8 +14,8 @@ on:
     types: [opened, synchronize, reopened]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -39,7 +39,7 @@ jobs:
         uses: microsoft/setup-msbuild@v1.1.3
 
       - name: Generate project files
-        run: tools/premake5 vs2022
+        run: tools/premake5 vs2022 --games=all
 
       - name: Set up problem matching
         uses: ammaraskar/msvc-problem-matcher@master

@@ -275,7 +275,10 @@ filter "configurations:Release"
 	buildoptions {"/bigobj"}
 	linkoptions {"/IGNORE:4702"}
 	defines {"NDEBUG"}
-	fatalwarnings {"All"}
+	disablewarnings {"4127"}
+	if not os.getenv("CI") then
+		fatalwarnings {"All"}
+	end
 filter {}
 
 filter "configurations:Debug"

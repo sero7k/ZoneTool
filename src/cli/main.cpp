@@ -2,6 +2,7 @@
 #include "commands.hpp"
 #include "game_registry.hpp"
 #include "crash.hpp"
+#include "acts.hpp"
 
 #include <io/filesystem.hpp>
 
@@ -188,6 +189,11 @@ namespace zonetool::cli
 	int main(const int argc, char** argv)
 	{
 		std::vector<std::string> args(argv + 1, argv + argc);
+		if (!args.empty() && args.front() == "acts")
+		{
+			return acts::run_command({args.begin() + 1, args.end()});
+		}
+
 		if (!args.empty() && is_help(args.front()))
 		{
 			print_help(std::span(args).subspan(1));

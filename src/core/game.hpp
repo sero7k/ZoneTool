@@ -19,6 +19,7 @@ namespace zonetool
 	using zone_command = void(*)(const std::filesystem::path& zone_folder, const std::filesystem::path& zone_path);
 	using listing_command = std::string(*)(const std::filesystem::path& zone_folder, const std::filesystem::path& zone_path);
 	using build_command = void(*)(const std::filesystem::path& zone_folder, const std::string& name);
+	using import_map_command = bool(*)(const std::filesystem::path& map_file, const std::string& name);
 	using token_name_resolver = std::string(*)(std::uint32_t id);
 
 	struct game
@@ -37,6 +38,7 @@ namespace zonetool
 		build_command build_zone;
 		token_name_resolver token_name;
 		listing_command inspect_zone;
+		import_map_command import_map;
 	};
 
 	struct converter

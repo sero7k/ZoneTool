@@ -91,6 +91,48 @@ generate.bat --games=h1,iw7
 
 Then open `build/x64-zt.sln`, or build Release x64 with MSBuild. The result is `build/bin/x64/Release/zonetool.exe`. A converter builds only when its source and target games are both selected.
 
+## This fork
+
+This fork is x64-zt (`develop`) plus the map work for the CoD Legacy client.
+
+### Black Ops II map import (H1)
+
+`importmap` reads the `.h1map` export of the CoD Legacy tool (`bo2_h1_export`) and writes the H1 map assets to `dump/<map>/`:
+`maps/mp/<map>.d3dbsp.*` (gfx, clip, com, phys, fx, glass, ents), one material per Black Ops II material (`materials/wc/bo2_*.json`), the images it copies and `maps/mp/<map>.materials.csv` (the material lines for `zone_source/<map>.csv`).
+
+```bash
+zonetool.exe importmap bo2_import/carrier/mp_carrier.h1map -game h1 -path <MWR folder>
+```
+
+The importer also reads these files next to the `.h1map` when they exist:
+
+| File | Use |
+|---|---|
+| `<stem>.mats.tsv` | material kinds and image names |
+| `<stem>.h1lmuv` | the map's own lightmap coordinates |
+| `<stem>.probes` | reflection probes (nearest probe per surface) |
+| `<stem>.grid` / `<stem>.grid56` | light grid colour / 56 directional colours for models |
+| `<stem>.col` | Black Ops II collision (mesh, world brushes, static model boxes) |
+| `<map>.ents` | spawn and script entities |
+
+Environment switches: `BO2_TRI_BUDGET` (collision triangle budget), `BO2_COL_RENDER` (collision from the drawn triangles, not `.col`), `BO2_COL_NO_COMPACT`, `BO2_COL_BOUNDS`.
+
+### IW7 -> H1 maps
+
+`dumpzone <map> --target h1 -game iw7` also converts the map: gfx world, clip map (with physics world, fx and glass world), com world, map ents, effects and particle systems (written when the zone ends) and createfx. `tools/iw7_lightbake.py`, `tools/iw7_lmdir.py` and `tools/iw7_lmtone.py` bake lightmaps from the exported lights.
+
+### atian-cod-tools (ACTS)
+
+`zonetool.exe acts ...` runs [ACTS](https://github.com/ate47/atian-cod-tools) (`acts.exe`) for games x64-zt does not read (BO3, BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6, BO7): fastfile dumps, linkers, GSC tools and hash lookup. `zonetool.exe acts help` lists the commands and games.
+
+ACTS is not linked into zonetool.exe. `deps/atian-cod-tools` is a submodule with `update = none`, so `generate.bat` skips it. `tools\build_acts.bat` builds it (CMake, vcpkg) into `build\bin\x64\Release\acts\`. A release `acts.exe` in `acts\` next to zonetool.exe, `-actspath <file>` or the `ZONETOOL_ACTS` variable also work. ACTS is GPL-3.0 or MIT, so keep its `LICENSE.md` and `licenses\` with the binaries.
+
+ACTS dumps scripts and data tables, not images, models or worlds.
+
+### v1
+
+The v1 ZoneTool of this fork (hooks the game exe, in-process T7 dumpers) is kept on the `v1` branch.
+
 ## Guides
 
 - [x64-zt](https://docs.auroramod.dev/x64-zt)

@@ -117,6 +117,86 @@ namespace zonetool::iw7
 				return out_buffer;
 			}
 
+
+			// v128 metal: IW7's *_packed_cs colour maps carry the specular level in alpha (render_iw7 / fastfile_iw7 shine.rs,
+			//      from retail mp_flip's lmap_specenv shaders): metalness = saturate(a - 0.1) / 0.9, diffuse = colour * (1 - metalness).
+			//      H1's Ghosts-style techsets use the colour map as diffuse albedo (squared), so every metal (statues, copper pipes,
+			//      brushed steel) drew as a bright painted surface. Take the metal's diffuse out here (in gamma-2 space:
+			//      c * sqrt(1 - m)), keeping a small floor so metals don't go black where the probes are dim.
+			constexpr bool v128_metal = true;
+			constexpr float v128_metal_floor = 0.04f; // v131: 0.12 left the gold owner statue pale cream; IW7 metals have no diffuse at all
+			std::atomic<unsigned int> v128_metal_images{0};
+
+			void v128_unmetal(const std::string& vn, DXGI_FORMAT vf, std::vector<std::uint8_t>& vd, unsigned int vw, unsigned int vh)
+			{
+				// v132: our opaque world techset (wc_l_sm_ndw_b0c0l0, IW6 "b0" family) multiplies the lit colour by col.a, and the
+				//       IW7 lightmap was scaled (S=26) for the ~0.04 average alpha of packed_cs maps. But that alpha is IW7's specular
+				//       level, not opacity (fastfile_iw7 look.rs / shine.rs), so metals (a ~0.9) and old-style _c maps (a = 1, e.g. the
+				//       gallery's metal_brushed_soft_01 pedestal) came out 20-26x brighter than the rest of the world. Give every
+				//       packed_cs map the same alpha (10/255 = 1/S), and _c metal maps without transparency the same.
+				if (!v128_metal) return;
+				const bool vpacked = vn.find("_packed_cs") != std::string::npos;
+				const bool vmetal_c = !vpacked && vn.size() > 2 && vn.compare(vn.size() - 2, 2, "_c") == 0 && vn.find("metal") != std::string::npos;
+				if (!vpacked && !vmetal_c) return;
+				if (vf != DXGI_FORMAT_BC7_UNORM && vf != DXGI_FORMAT_BC7_UNORM_SRGB) return;
+				size_t voff = 0;
+				bool vany = false;
+				while (vw && vh && voff < vd.size())
+				{
+					const size_t vbytes = size_t((vw + 3) / 4) * size_t((vh + 3) / 4) * 16;
+					if (voff + vbytes > vd.size()) break;
+					DirectX::Image vimg{};
+					vimg.width = vw; vimg.height = vh; vimg.format = vf;
+					vimg.rowPitch = size_t((vw + 3) / 4) * 16; vimg.slicePitch = vbytes;
+					vimg.pixels = vd.data() + voff;
+					DirectX::ScratchImage vraw;
+					if (SUCCEEDED(DirectX::Decompress(vimg, DXGI_FORMAT_R8G8B8A8_UNORM, vraw)))
+					{
+						const auto* vr = vraw.GetImage(0, 0, 0);
+						bool vchg = false;
+						if (vmetal_c)
+						{
+							unsigned char vamin = 255;
+							for (size_t vy = 0; vy < vr->height; vy++) for (size_t vx = 0; vx < vr->width; vx++) vamin = std::min(vamin, vr->pixels[vy * vr->rowPitch + vx * 4 + 3]);
+							if (vamin < 250) return; // has real transparency: leave it
+							for (size_t vy = 0; vy < vr->height; vy++) for (size_t vx = 0; vx < vr->width; vx++) vr->pixels[vy * vr->rowPitch + vx * 4 + 3] = 10;
+							vchg = true;
+						}
+						for (size_t vy = 0; vy < vr->height; vy++)
+						{
+							auto* vrow = vr->pixels + vy * vr->rowPitch;
+							for (size_t vx = 0; vx < vr->width; vx++)
+							{
+								if (!vpacked) break;
+								auto* vpx = vrow + vx * 4;
+								const float va = vpx[3] / 255.0f;
+								vpx[3] = 10;
+								vchg = true;
+								const float vm = std::clamp((va - 0.1f) / 0.9f, 0.0f, 1.0f);
+								if (vm <= 0.0f) continue;
+								const float vk = std::sqrt(std::max(1.0f - vm, v128_metal_floor));
+								for (int vc = 0; vc < 3; vc++) vpx[vc] = static_cast<std::uint8_t>(std::lround(vpx[vc] * vk));
+								vchg = true;
+							}
+						}
+						if (vchg)
+						{
+							DirectX::ScratchImage venc;
+							if (SUCCEEDED(DirectX::Compress(*vr, vf, DirectX::TEX_COMPRESS_BC7_QUICK | DirectX::TEX_COMPRESS_PARALLEL, 0.5f, venc))
+								&& venc.GetPixelsSize() == vbytes)
+							{
+								std::memcpy(vd.data() + voff, venc.GetPixels(), vbytes);
+								vany = true;
+							}
+						}
+					}
+					voff += vbytes;
+					if (vw == 1 && vh == 1) break;
+					vw = std::max(1u, vw / 2); vh = std::max(1u, vh / 2);
+				}
+				if (vany) v128_metal_images++;
+			}
+
 			void dump_streamed_image(zonetool::h1::GfxImage* image, bool is_self = false, bool dump_dds = false)
 			{
 				for (auto i = 0u; i < 4; i++)
@@ -191,6 +271,7 @@ namespace zonetool::iw7
 						{
 							std::string parent_path = filesystem::get_dump_path() + "streamed_images\\";
 							std::string raw_path = utils::string::va("%s%s_stream%i.pixels", parent_path.data(), name.data(), i);
+							v128_unmetal(name, DXGI_FORMAT(image->imageFormat), pixel_data, image->streams[i].width, image->streams[i].height);
 							std::string pixel_data_str = std::string(pixel_data.begin(), pixel_data.end());
 							utils::io::write_file(raw_path, pixel_data_str, false);
 						}
@@ -312,7 +393,7 @@ namespace zonetool::iw7
 				{zonetool::iw7::TextureSemantic::TS_THINFILM_MAP, zonetool::h1::IMG_TS::TS_2D},
 				{zonetool::iw7::TextureSemantic::TS_DISPLACEMENT_MAP, zonetool::h1::IMG_TS::TS_DISPLACEMENT_MAP},
 				{zonetool::iw7::TextureSemantic::TS_PARALLAX_MAP, zonetool::h1::IMG_TS::TS_PARALLAX_MAP},
-				{zonetool::iw7::TextureSemantic::TS_COLOR_SPECULAR_MAP, zonetool::h1::IMG_TS::TS_2D},
+				{zonetool::iw7::TextureSemantic::TS_COLOR_SPECULAR_MAP, zonetool::h1::IMG_TS::TS_COLOR_MAP}, // v59: packed colour+spec is a colour map
 				{zonetool::iw7::TextureSemantic::TS_NORMAL_OCCLUSSION_GLOSS_MAP, zonetool::h1::IMG_TS::TS_2D},
 				{zonetool::iw7::TextureSemantic::TS_ALPHA_REVEAL_THICKNESS_MAP, zonetool::h1::IMG_TS::TS_2D},
 			};
@@ -344,7 +425,7 @@ namespace zonetool::iw7
 
 				new_asset->flags = asset->flags & 0x2;
 				new_asset->semantic = mapped_semantic[asset->semantic];
-				new_asset->category = mapped_category[asset->semantic];
+				new_asset->category = (mapped_category.find(static_cast<std::uint8_t>(asset->category)) != mapped_category.end()) ? mapped_category[static_cast<std::uint8_t>(asset->category)] : zonetool::h1::IMG_CATEGORY::IMG_CATEGORY_UNKNOWN; // v59: was keyed by semantic
 
 				COPY_VALUE_CAST(picmip);
 				COPY_VALUE_CAST(cardMemory);

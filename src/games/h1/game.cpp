@@ -4,6 +4,8 @@
 
 #include <xsk/gsc/engine/h1.hpp>
 
+#include "importer/bo2map.hpp"
+
 namespace zonetool::h1
 {
 	void dump_zone(const std::filesystem::path& zone_folder, const std::filesystem::path& zone_path, const converter* converter);
@@ -44,6 +46,7 @@ namespace zonetool::h1
 			.list_zone = list_zone,
 			.build_zone = build_zone,
 			.token_name = token_name,
+			.import_map = importer::import_bo2_map,
 		};
 
 		return h1;
