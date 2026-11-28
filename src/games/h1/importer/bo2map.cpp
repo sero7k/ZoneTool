@@ -1254,8 +1254,8 @@ namespace zonetool::h1::importer
 					ZONETOOL_INFO("importmap %s: sky of %d surfaces, picture %s", in.name.c_str(), sky.skySurfCount, sky_image.c_str());
 				}
 			}
-			w->lastSunPrimaryLightIndex = 0;
-			w->primaryLightCount = 1;
+			w->lastSunPrimaryLightIndex = 1;
+			w->primaryLightCount = 2;
 			w->primaryLightEnvCount = 2;
 			w->sortKeyLitDecal = 7;
 			w->sortKeyEffectDecal = 43;
@@ -1563,9 +1563,9 @@ namespace zonetool::h1::importer
 			w->primaryLightDynEntShadowVis[0] = nullptr;
 			w->primaryLightDynEntShadowVis[1] = nullptr;
 			w->nonSunPrimaryLightForModelDynEnt = nullptr;
-			w->shadowGeom = allocator.allocate_array<zonetool::h1::GfxShadowGeometry>(1);
-			w->shadowGeomOptimized = allocator.allocate_array<zonetool::h1::GfxShadowGeometry>(1);
-			w->lightRegion = allocator.allocate_array<zonetool::h1::GfxLightRegion>(1);
+			w->shadowGeom = allocator.allocate_array<zonetool::h1::GfxShadowGeometry>(w->primaryLightCount);
+			w->shadowGeomOptimized = allocator.allocate_array<zonetool::h1::GfxShadowGeometry>(w->primaryLightCount);
+			w->lightRegion = allocator.allocate_array<zonetool::h1::GfxLightRegion>(w->primaryLightCount);
 
 			// dpvs
 			{
@@ -1749,11 +1749,11 @@ namespace zonetool::h1::importer
 			auto* c = allocator.allocate<zonetool::h1::ComWorld>();
 			c->name = allocator.duplicate_string("maps/mp/" + in.name + ".d3dbsp");
 			c->isInUse = 0;
-			c->primaryLightCount = 1;
-			c->primaryLights = allocator.allocate_array<zonetool::h1::ComPrimaryLight>(1);
-			auto& l = c->primaryLights[0];
+			c->primaryLightCount = 2;
+			c->primaryLights = allocator.allocate_array<zonetool::h1::ComPrimaryLight>(c->primaryLightCount);
+			auto& l = c->primaryLights[1]; // sun lights start at 1 (R_AnySunHasShadowMap)
 			l.type = zonetool::h1::GFX_LIGHT_TYPE_DIR;
-			l.canUseShadowMap = 1;
+			l.canUseShadowMap = 0;
 			l.physicallyBased = 0;
 			l.exponent = 0;
 			l.lightingState = 0;
@@ -1771,7 +1771,7 @@ namespace zonetool::h1::importer
 			c->primaryLightEnvs = allocator.allocate_array<zonetool::h1::ComPrimaryLightEnv>(2);
 			c->primaryLightEnvs[0].numIndices = 0;
 			c->primaryLightEnvs[1].numIndices = 1;
-			c->primaryLightEnvs[1].primaryLightIndices[0] = 0;
+			c->primaryLightEnvs[1].primaryLightIndices[0] = 1;
 			return c;
 		}
 
