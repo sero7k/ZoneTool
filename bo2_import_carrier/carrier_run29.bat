@@ -3,7 +3,7 @@ rem (run29: run28 + latest ZoneTool release (directional light grid from mp_carr
 cd /d "%~dp0"
 taskkill /f /im "Cod Legacy.exe" >NUL 2>&1
 taskkill /f /im zonetool_new.exe >NUL 2>&1
-powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/sero7k/ZoneTool/releases/download/latest/Release.zonetool.zip' -OutFile '%~dp0zt_release.zip'; Remove-Item -Recurse -Force '%~dp0zt_release' -ErrorAction SilentlyContinue; Expand-Archive -Path '%~dp0zt_release.zip' -DestinationPath '%~dp0zt_release' -Force; $e = Get-ChildItem '%~dp0zt_release' -Recurse -Filter zonetool.exe | Select-Object -First 1; if ($e) { Copy-Item $e.FullName '%~dp0zonetool_new.exe' -Force; 'zonetool updated ' + $e.Length | Out-File '%~dp0zt_update.log' } else { 'no zonetool.exe in release' | Out-File '%~dp0zt_update.log' }"
+powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/sero7k/ZoneTool/releases/download/v1-latest/Release.zonetool.zip' -OutFile '%~dp0zt_release.zip'; Remove-Item -Recurse -Force '%~dp0zt_release' -ErrorAction SilentlyContinue; Expand-Archive -Path '%~dp0zt_release.zip' -DestinationPath '%~dp0zt_release' -Force; $e = Get-ChildItem '%~dp0zt_release' -Recurse -Filter zonetool.exe | Select-Object -First 1; if ($e) { Copy-Item $e.FullName '%~dp0zonetool_new.exe' -Force; 'zonetool updated ' + $e.Length | Out-File '%~dp0zt_update.log' } else { 'no zonetool.exe in release' | Out-File '%~dp0zt_update.log' }"
 echo started> "%~dp0carrier_light.done"
 cd /d "%~dp0"
 set C=bo2_import\carrier
