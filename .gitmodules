@@ -43,3 +43,7 @@
 [submodule "deps/stb"]
 	path = deps/stb
 	url = https://github.com/nothings/stb
+[submodule "deps/atian-cod-tools"]
+	path = deps/atian-cod-tools
+	url = https://github.com/ate47/atian-cod-tools.git
+	update = none

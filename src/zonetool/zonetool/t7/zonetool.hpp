@@ -13,7 +13,8 @@
 #include "zonetool/utils/utils.hpp"
 #include "zonetool/shared/shared.hpp"
 
-//#include "assets/xmodel.hpp"
+#include "assets/gfximage.hpp"
+#include "assets/material.hpp"
 
 //#include "zone.hpp"
 
