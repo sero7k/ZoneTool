@@ -1190,6 +1190,7 @@ namespace zonetool::h1::importer
 			h1_asset->stageCount = 1;
 			h1_asset->stages = allocator.allocate_array<zonetool::h1::Stage>(1);
 			h1_asset->stages[0].name = allocator.duplicate_string("unknown");
+			h1_asset->stages[0].sunPrimaryLightIndex = 1; // view sun light (sub_6B0860, sub_1C71B0)
 			h1_asset->stages[0].radiometricScale = 0.001f;
 			h1_asset->checksum = 0;
 			return h1_asset;
@@ -1698,11 +1699,26 @@ namespace zonetool::h1::importer
 				}
 
 				d.surfaceCastsSunShadow = allocator.allocate_array<unsigned int>(vis_words);
+				float caster_mins[3] = {FLT_MAX, FLT_MAX, FLT_MAX}, caster_maxs[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 				for (unsigned int p = 0; p < surface_count; p++)
 				{
 					if (d.surfaces[p].laf.fields.flags & zonetool::h1::GFX_SURFACE_CASTS_SUN_SHADOW)
 					{
 						d.surfaceCastsSunShadow[p >> 5] |= 1u << (p & 31);
+						const auto& caster = in.surfaces[order[p]];
+						for (int k = 0; k < 3; k++)
+						{
+							caster_mins[k] = std::min(caster_mins[k], caster.mins[k]);
+							caster_maxs[k] = std::max(caster_maxs[k], caster.maxs[k]);
+						}
+					}
+				}
+				if (caster_mins[0] <= caster_maxs[0])
+				{
+					for (int k = 0; k < 3; k++)
+					{
+						w->shadowBounds.midPoint[k] = (caster_mins[k] + caster_maxs[k]) * 0.5f;
+						w->shadowBounds.halfSize[k] = (caster_maxs[k] - caster_mins[k]) * 0.5f;
 					}
 				}
 				d.sunShadowOptCount = 0;
