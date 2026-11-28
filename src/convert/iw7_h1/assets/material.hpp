@@ -7,6 +7,7 @@ namespace zonetool::iw7
 		namespace material
 		{
 			void dump(zonetool::iw7::Material* asset);
+			void dump_used(const zonetool::iw7::Material* asset);
 		}
 	}
 }

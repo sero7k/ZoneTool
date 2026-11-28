@@ -1,6 +1,7 @@
 #include <std_include.hpp>
 #include "../include.hpp"
 #include "material.hpp"
+#include "fxeffectdef.hpp"
 #include <utils/string.hpp>
 #pragma warning(disable: 4127) // constexpr test toggles in conditions (warnings are errors in Release)
 
@@ -717,6 +718,27 @@ namespace zonetool::iw7
 			void dump(zonetool::iw7::Material* asset)
 			{
 				dump_json(asset);
+			}
+
+			void dump_used(const zonetool::iw7::Material* asset)
+			{
+				if (!asset || !asset->name || !*asset->name || fxeffectdef::was_dumped(ASSET_TYPE_MATERIAL, asset->name))
+				{
+					return;
+				}
+
+				if (!asset->techniqueSet)
+				{
+					static std::unordered_set<std::string> warned;
+					if (warned.emplace(asset->name).second)
+					{
+						ZONETOOL_WARNING("material %s is a reference to a zone that is not loaded, not dumped", asset->name);
+					}
+					return;
+				}
+
+				dump_json(const_cast<zonetool::iw7::Material*>(asset));
+				fxeffectdef::note_dumped(ASSET_TYPE_MATERIAL, asset->name);
 			}
 		}
 	}

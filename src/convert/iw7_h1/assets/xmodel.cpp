@@ -1,6 +1,7 @@
 #include <std_include.hpp>
 #include "../include.hpp"
 #include "xmodel.hpp"
+#include "material.hpp"
 
 #include <h1/assets/xmodel.hpp>
 
@@ -104,6 +105,11 @@ namespace zonetool::iw7
 
 			void dump(zonetool::iw7::XModel* asset)
 			{
+				for (auto i = 0; i < asset->numsurfs && asset->materialHandles; i++)
+				{
+					material::dump_used(asset->materialHandles[i]);
+				}
+
 				utils::memory::allocator allocator;
 				const auto converted_asset = convert(asset, allocator);
 				zonetool::h1::xmodel::dump(converted_asset);

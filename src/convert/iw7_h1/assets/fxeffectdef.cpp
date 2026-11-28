@@ -681,6 +681,11 @@ namespace zonetool::iw7
 				{
 					return;
 				}
+				if (!mat->techniqueSet)
+				{
+					material::dump_used(mat);
+					return;
+				}
 				static std::unordered_set<std::string> done;
 				if (!done.insert(mat_name).second)
 				{
@@ -693,7 +698,7 @@ namespace zonetool::iw7
 					for (auto i = 0; i < mat->textureCount && mat->textureTable; i++)
 					{
 						auto* image = mat->textureTable[i].image;
-						if (image && image->name && !was_dumped(ASSET_TYPE_IMAGE, image->name))
+						if (image && image->name && image->width && !was_dumped(ASSET_TYPE_IMAGE, image->name))
 						{
 							gfximage::dump(image);
 							note_dumped(ASSET_TYPE_IMAGE, image->name);

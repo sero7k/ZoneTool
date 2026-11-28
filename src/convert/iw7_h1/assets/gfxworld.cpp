@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include "clipmap.hpp"
+#include "material.hpp"
 #include <utils/string.hpp>
 
 #include <h1/assets/gfxworld.hpp>
@@ -1123,6 +1124,15 @@ namespace zonetool::iw7
 
 			void dump(GfxWorld* asset)
 			{
+				for (auto i = 0u; i < asset->surfaceCount && asset->dpvs.surfaces; i++)
+				{
+					material::dump_used(asset->dpvs.surfaces[i].material);
+				}
+				for (auto i = 0; i < asset->materialMemoryCount && asset->materialMemory; i++)
+				{
+					material::dump_used(asset->materialMemory[i].material);
+				}
+
 				utils::memory::allocator allocator;
 				const auto converted_asset = convert(asset, allocator);
 				zonetool::h1::gfx_world::dump(converted_asset);

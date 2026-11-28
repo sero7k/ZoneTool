@@ -67,6 +67,16 @@ namespace zonetool::convert::iw7_h1
 			target::fxeffectdef::flush();
 			target::createfx::finalize(zone_name);
 		}
+
+		std::vector<std::string> required_zones(const std::string& zone_name)
+		{
+			if (!zone_name.starts_with("mp_"))
+			{
+				return {};
+			}
+
+			return {"techsets_global_core_mp", "techsets_common", "techsets_common_core_mp", "techsets_common_mp", "common_core_mp", "techsets_" + zone_name};
+		}
 	}
 
 	const converter& definition()
@@ -77,6 +87,7 @@ namespace zonetool::convert::iw7_h1
 			.target = "h1",
 			.dump_asset = dump_asset,
 			.finish = finish,
+			.required_zones = required_zones,
 		};
 
 		return iw7_h1;
