@@ -1191,6 +1191,7 @@ namespace zonetool::h1::importer
 			h1_asset->stages = allocator.allocate_array<zonetool::h1::Stage>(1);
 			h1_asset->stages[0].name = allocator.duplicate_string("unknown");
 			h1_asset->stages[0].sunPrimaryLightIndex = 1; // view sun light (sub_6B0860, sub_1C71B0)
+			h1_asset->stages[0].triggerIndex = 1024;
 			h1_asset->stages[0].radiometricScale = 0.001f;
 			h1_asset->checksum = 0;
 			return h1_asset;
@@ -1509,8 +1510,9 @@ namespace zonetool::h1::importer
 			w->lightGrid.missingGridColorIndex = 0;
 			w->lightGrid.tableVersion = 0;
 			w->lightGrid.paletteVersion = 0;
-			w->lightGrid.stageCount = 0;
-			w->lightGrid.stageLightingContrastGain = nullptr;
+			w->lightGrid.stageCount = 1;
+			w->lightGrid.stageLightingContrastGain = allocator.allocate_array<float>(1);
+			w->lightGrid.stageLightingContrastGain[0] = 0.3f;
 			for (unsigned int i = 0; i < 56; i++)
 			{
 				for (unsigned int j = 0; j < 3; j++)
