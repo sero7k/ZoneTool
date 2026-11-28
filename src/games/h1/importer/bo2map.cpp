@@ -574,6 +574,16 @@ namespace zonetool::h1::importer
 			return 5;
 		}
 
+		int h1_contents_from_bo2(int bo2)
+		{
+			std::uint32_t h1 = 0;
+			for (const auto bit : {CONTENTS_SOLID, CONTENTS_PLAYERCLIP, CONTENTS_CLIPSHOT})
+			{
+				if (static_cast<std::uint32_t>(bo2) & bit) h1 |= bit;
+			}
+			return static_cast<int>(h1);
+		}
+
 		// Whether a surface is collidable: visible solid kinds only.
 		bool solid(std::uint32_t k)
 		{
@@ -641,6 +651,7 @@ namespace zonetool::h1::importer
 				cf.read(magic, 8);
 				if (cf && std::memcmp(magic, "BO2COL01", 8) == 0)
 				{
+					const bool all_solid = std::getenv("BO2_COL_ALLSOLID") != nullptr;
 					std::uint32_t nm = 0;
 					cf.read(reinterpret_cast<char*>(&nm), 4);
 					std::vector<std::string> cnames(nm);
@@ -654,7 +665,7 @@ namespace zonetool::h1::importer
 						std::int32_t sfl = 0, cfl = 0;
 						cf.read(reinterpret_cast<char*>(&sfl), 4);
 						cf.read(reinterpret_cast<char*>(&cfl), 4);
-						ccont[i] = cfl & 0x03FFFFFF;
+						ccont[i] = all_solid ? (cfl != 0 ? static_cast<int>(CONTENTS_SOLID) : 0) : h1_contents_from_bo2(cfl);
 						if (ccont[i] != 1 && ccont[i] != 0)
 						{
 							char suf[16];
@@ -923,7 +934,8 @@ namespace zonetool::h1::importer
 			h1_asset->leafs[1].firstCollAabbIndex = 0;
 			h1_asset->leafs[1].collAabbCount = 1;
 			h1_asset->leafs[1].brushContents = 0;
-			h1_asset->leafs[1].terrainContents = 1;
+			h1_asset->leafs[1].terrainContents = 0;
+			for (unsigned int i = 0; i < info->numMaterials; i++) h1_asset->leafs[1].terrainContents |= info->materials[i].contents;
 			h1_asset->leafs[1].bounds = world;
 			h1_asset->leafs[1].leafBrushNode = 0;
 
