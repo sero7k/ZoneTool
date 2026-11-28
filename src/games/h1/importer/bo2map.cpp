@@ -12,6 +12,8 @@
 
 #include "../physworld_generator.hpp"
 
+#include <DirectXTex.h>
+
 #include <algorithm>
 #include <cfloat>
 #include <cstdlib>
@@ -516,6 +518,69 @@ namespace zonetool::h1::importer
 			return true;
 		}
 
+		bool copy_normal_picture(const std::string& name)
+		{
+			if (name.empty()) return false;
+			if (g_copied.count(name)) return true;
+			std::ifstream f(g_src_dir + "images\\" + name + ".dds", std::ios::binary);
+			if (!f) return false;
+			const std::string bytes((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+			DirectX::TexMetadata meta{};
+			DirectX::ScratchImage source;
+			if (bytes.size() < 128 || FAILED(DirectX::LoadFromDDSMemory(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size(), DirectX::DDS_FLAGS_NONE, &meta, source)))
+			{
+				return copy_picture(name);
+			}
+			auto top = *source.GetImage(0, 0, 0);
+			top.format = DirectX::MakeLinear(top.format);
+			DirectX::ScratchImage work;
+			const auto decoded = DirectX::IsCompressed(top.format)
+				? DirectX::Decompress(top, DXGI_FORMAT_R32G32B32A32_FLOAT, work)
+				: DirectX::Convert(top, DXGI_FORMAT_R32G32B32A32_FLOAT, DirectX::TEX_FILTER_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, work);
+			if (FAILED(decoded))
+			{
+				ZONETOOL_WARNING("importmap: normal map %s not converted", name.c_str());
+				return copy_picture(name);
+			}
+			const auto& image = *work.GetImage(0, 0, 0);
+			for (auto y = 0u; y < image.height; y++)
+			{
+				auto* row = reinterpret_cast<float*>(image.pixels + y * image.rowPitch);
+				for (auto x = 0u; x < image.width; x++)
+				{
+					auto* pixel = row + x * 4;
+					const auto slope_u = pixel[0] - 0.5f;
+					const auto slope_v = pixel[1] - 0.5f;
+					pixel[0] = slope_v; // _iw6 lit ps reads 2 * .yx
+					pixel[1] = slope_u;
+					pixel[2] = 0.0f;
+					pixel[3] = 1.0f;
+				}
+			}
+			DirectX::ScratchImage mips;
+			if (FAILED(DirectX::GenerateMipMaps(image, DirectX::TEX_FILTER_BOX, 0, mips)))
+			{
+				return copy_picture(name);
+			}
+			DirectX::ScratchImage compressed;
+			if (FAILED(DirectX::Compress(mips.GetImages(), mips.GetImageCount(), mips.GetMetadata(), DXGI_FORMAT_BC5_SNORM,
+				DirectX::TEX_COMPRESS_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, compressed)))
+			{
+				return copy_picture(name);
+			}
+			DirectX::Blob blob;
+			if (FAILED(DirectX::SaveToDDSMemory(compressed.GetImages(), compressed.GetImageCount(), compressed.GetMetadata(), DirectX::DDS_FLAGS_NONE, blob)))
+			{
+				return copy_picture(name);
+			}
+			auto out = zonetool::filesystem::file("images\\"s + name + ".dds"s);
+			out.open("wb");
+			out.write(std::string(reinterpret_cast<const char*>(blob.GetBufferPointer()), blob.GetBufferSize()));
+			out.close();
+			g_copied.insert(name);
+			return true;
+		}
+
 		void read_mats_tsv(const std::string& path, map_in& m)
 		{
 			std::ifstream f(path);
@@ -604,7 +669,7 @@ namespace zonetool::h1::importer
 				textures.push_back(spec);
 			}
 			ordered_json nml;
-			nml["image"] = (!m.nrm.empty() && copy_picture(m.nrm)) ? m.nrm : "$identitynormalmap";
+			nml["image"] = (!m.nrm.empty() && copy_normal_picture(m.nrm)) ? m.nrm : "$identitynormalmap";
 			nml["semantic"] = 5;
 			nml["samplerState"] = blended ? 1 : 19;
 			nml["lastCharacter"] = 112;
