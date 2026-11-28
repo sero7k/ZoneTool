@@ -34,4 +34,6 @@ namespace zonetool::cli
 	void list_zones(const settings& settings, std::span<const std::string> args);
 	void build_zone(const settings& settings, std::span<const std::string> args);
 	void generate_csv(const settings& settings, std::span<const std::string> args);
+	void import_map(const settings& settings, std::span<const std::string> args);
+	void run_acts(const settings& settings, std::span<const std::string> args);
 }

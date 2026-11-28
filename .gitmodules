@@ -40,3 +40,7 @@
 [submodule "deps/glaze"]
 	path = deps/glaze
 	url = https://github.com/stephenberry/glaze.git
+[submodule "deps/atian-cod-tools"]
+	path = deps/atian-cod-tools
+	url = https://github.com/ate47/atian-cod-tools.git
+	update = none

@@ -324,6 +324,26 @@ namespace zonetool::cli
 		}
 	}
 
+	void import_map(const settings& settings, const std::span<const std::string> args)
+	{
+		if (!settings.game->import_map)
+		{
+			std::cout << std::format("importmap is not supported for {}\n", settings.game->name);
+			return;
+		}
+
+		if (args.empty())
+		{
+			std::cout << "usage: importmap <file.h1map> [name]\n";
+			return;
+		}
+
+		if (!settings.game->import_map(args[0], args.size() > 1 ? args[1] : std::string{}))
+		{
+			throw std::runtime_error(std::format("importmap {} failed", args[0]));
+		}
+	}
+
 	void generate_csv(const settings& settings, const std::span<const std::string> args)
 	{
 		if (args.empty())
