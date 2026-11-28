@@ -29,27 +29,26 @@ Everything below is added on top of upstream [auroramod/x64-zt](https://github.c
 - `ZT_DUMP_REFS` env var: H1 dumps also pull in the referenced assets (for example a map's ocean material and techset).
 - CI builds every commit on `main` and publishes it as the [`latest`](https://github.com/sero7k/ZoneTool/releases/tag/latest) release.
 
-## Supported Games
-One table for everything. Two code lines live in this repo: **`main`** (hooks the running game exe) and **[`v2`](https://github.com/sero7k/ZoneTool/tree/v2)** (Joelrau's rewrite that reads fastfiles directly). The last column says which one to use.
+## Converting to MWR (H1)
+What each game can be converted to *Modern Warfare Remastered* with today, what we plan to add, and how hard it is.
 
-✔️ works · ⚠️ partial / experimental · ❌ no
+| Game | Converts to MWR now | Planned | How hard |
+|---|---|---|---|
+| **Ghosts** (IW6) | Maps and assets | — | Done (upstream) |
+| **Advanced Warfare** (S1) | Maps and assets | — | Done (upstream) |
+| **MW2 Campaign Remastered** (H2) | Maps and assets | — | Done (upstream) |
+| **WWII** (S2) | Maps and assets, partly (`v2` only) | Bring to the merged version | Easy |
+| **Infinite Warfare** (IW7) | Maps (`mp_flip` ported) | Better lighting and glass | Medium |
+| **Black Ops II** (T6) | Maps (`mp_carrier` working) | Every BO2 map, then menus and UI, then weapons | Maps medium (~3–8 h each now the pipeline exists); weapons and animations hard |
+| **Black Ops III** (T7) | Images and materials only | Maps later | Hard: no map converter yet, the map format needs to be worked out |
+| **World at War** (T4) | Dome ported with our own scripts | Move the steps into ZoneTool | Medium |
+| **Modern Warfare 2019** (IW8) | No (only to IW7, `v2`) | Not yet | Very hard: newer renderer and materials |
+| **BO4, Cold War, Vanguard, MWII, MWIII, BO6, BO7** | No (can be dumped through ACTS) | Ideas only | Very hard: newer engines, streamed assets, different materials and lighting |
 
-| Game | Dump | Build zones | Converts to | Use |
-|---|:-:|:-:|---|:-:|
-| **IW6** (*Ghosts*) | ✔️ | ✔️ | H1, H2 | main or v2 |
-| **S1** (*Advanced Warfare*) | ✔️ | ✔️ | H1, H2, S2 ⚠️ (v2) | main or v2 |
-| **H1** (*Modern Warfare Remastered*) | ✔️ | ✔️ | H2, S1 ⚠️, IW7 ⚠️, S2 ⚠️ (v2) | main or v2 |
-| **H2** (*MW2 Campaign Remastered*) | ✔️ | ✔️ | H1 | main or v2 |
-| **IW7** (*Infinite Warfare*) | ✔️ | ✔️ | H1 ⚠️ full map port (main), IW8 ⚠️ (v2) | main or v2 |
-| **S2** (*WWII*) | ✔️ | ✔️ | H1 ⚠️ | v2 |
-| **IW8** (*Modern Warfare 2019, 1.20*) | ✔️ | ✔️ | IW7 ⚠️ | v2 |
-| **T7** (*Black Ops III*) | ✔️ | ⚠️ via ACTS | H1 ⚠️, IW7 ⚠️ | main |
-| **T6** (*Black Ops II*) | ❌ | ❌ | H1 ⚠️ map import (`importmap`) | main |
-| **BO4, Cold War, MW2019, Vanguard, MWII, MWIII, BO6, BO7** | ✔️ via ACTS | ⚠️ BO4 / Cold War via ACTS | ❌ | main |
-
-- **IW7 -> H1** is our map port (world, collision, entities, materials, models, probes, effects; used for `mp_flip`). Lighting and glass reflections are still approximate.
-- **T6 -> H1** imports a BO2 map from the `.h1map` / `.ents` / `.col` / `.grid56` files written by CodLegacy's exporter. It works in game on `mp_carrier` (world, collision, spawns, materials, light grid). See [docs/BO2_IMPORT.md](docs/BO2_IMPORT.md).
-- **ACTS** games run through [atian-cod-tools](https://github.com/ate47/atian-cod-tools); commands are below.
+- **How hard:** Easy = mostly done, needs tidying. Medium = works, needs per-map polish. Hard = big pieces still missing. Very hard = a new converter from scratch.
+- CoD4, MW2 and MW3 (IW3/4/5) maps are ported with [Aurora's IW3/4/5 tools](https://docs.auroramod.dev/map-porting-iw5), not this repo.
+- `main` and `v2` are being merged into one version. Until then, WWII and MW2019 are only on [`v2`](https://github.com/sero7k/ZoneTool/tree/v2); everything else is on `main`.
+- BO2 import details: [docs/BO2_IMPORT.md](docs/BO2_IMPORT.md).
 
 ## How to use
 Check out the [Aurora Zonetool Basics](https://docs.auroramod.dev/zonetool-basics) for useful guides & information on how to port maps and use zonetool.
