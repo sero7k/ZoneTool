@@ -1324,7 +1324,7 @@ namespace zonetool::h1::importer
 				auto& root = w->aabbTrees[0].aabbTree[0];
 				std::memcpy(&root.bounds, &world, sizeof(world));
 				root.startSurfIndex = 0;
-				root.surfaceCount = 0;
+				root.surfaceCount = static_cast<unsigned short>(std::min<unsigned int>(surface_count, 0xFFFF)); // sun-lit cell bits read the root range (sub_65F8B0)
 				root.childCount = static_cast<unsigned short>(std::min<unsigned int>(child_count, 0xFFFF));
 				root.childrenOffset = static_cast<int>(sizeof(zonetool::h1::GfxAabbTree));
 				root.smodelIndexCount = 0;
