@@ -43,11 +43,12 @@ What each game can be converted to *Modern Warfare Remastered* with today, what 
 | **Black Ops III** (T7) | Images and materials only | Maps later | Hard: no map converter yet, the map format needs to be worked out |
 | **World at War** (T4) | Dome ported with our own scripts | Move the steps into ZoneTool | Medium |
 | **Modern Warfare 2019** (IW8) | No (only to IW7, `v2`) | Not yet | Very hard: newer renderer and materials |
-| **BO4, Cold War, Vanguard, MWII, MWIII, BO6, BO7** | No (can be dumped through ACTS) | Ideas only | Very hard: newer engines, streamed assets, different materials and lighting |
+| **Vanguard** (S4) | No (dump and convert to MW2019, `v2` only) | Ideas only | Very hard: would go S4 -> IW8 -> IW7 -> H1, or a new converter |
+| **BO4, Cold War, MWII, MWIII, BO6, BO7** | No (can be dumped through ACTS) | Ideas only | Very hard: newer engines, streamed assets, different materials and lighting |
 
 - **How hard:** Easy = mostly done, needs tidying. Medium = works, needs per-map polish. Hard = big pieces still missing. Very hard = a new converter from scratch.
 - CoD4, MW2 and MW3 (IW3/4/5) maps are ported with [Aurora's IW3/4/5 tools](https://docs.auroramod.dev/map-porting-iw5), not this repo.
-- `main` and `v2` are being merged into one version. Until then, WWII and MW2019 are only on [`v2`](https://github.com/sero7k/ZoneTool/tree/v2); everything else is on `main`.
+- `main` and `v2` are being merged into one version. Until then, WWII, MW2019 and Vanguard are only on [`v2`](https://github.com/sero7k/ZoneTool/tree/v2); everything else is on `main`.
 - BO2 import details: [docs/BO2_IMPORT.md](docs/BO2_IMPORT.md).
 
 ## How to use
