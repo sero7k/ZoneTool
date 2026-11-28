@@ -470,7 +470,6 @@ namespace zonetool::iw7
 					new_elem->flags = static_cast<zonetool::h1::FxElemDefFlags>(zonetool::h1::FX_ELEM_SPAWN_RELATIVE_TO_EFFECT);
 					unsigned int elem_flags = zonetool::h1::FX_ELEM_SPAWN_RELATIVE_TO_EFFECT;
 					if (emitter.flags & PARTICLE_EMITTER_DEF_FLAG_DRAW_PAST_FOG) elem_flags |= zonetool::h1::FX_ELEM_DRAW_PAST_FOG;
-					if (state->flags & PARTICLE_STATE_DEF_FLAG_DRAW_WITH_VIEW_MODEL) elem_flags |= zonetool::h1::FX_ELEM_DRAW_WITH_VIEWMODEL;
 					if (state->flags & PARTICLE_STATE_DEF_FLAG_BLOCKS_SIGHT) elem_flags |= zonetool::h1::FX_ELEM_BLOCK_SIGHT;
 					new_elem->flags2 = 0;
 					if (state->flags & PARTICLE_STATE_DEF_FLAG_PLAYER_FACING) new_elem->flags2 |= zonetool::h1::FX_ELEM2_BILLBOARD_FACING_PLAYER;
