@@ -160,6 +160,7 @@ namespace zonetool::iw7
 		void prepare_paths(const std::filesystem::path& zone_folder, const std::filesystem::path& zone_path)
 		{
 			filesystem::set_zone_folder(zone_folder);
+			filesystem::set_fastfile_folder(zone_path.parent_path());
 			filesystem::set_fastfile(zone_path.stem().string());
 		}
 
