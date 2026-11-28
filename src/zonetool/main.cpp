@@ -10,6 +10,8 @@
 
 #include "game/mode.hpp"
 
+#include "acts/acts_bridge.hpp"
+
 #define H1_BINARY "h1_mp64_ship.exe"
 #define H2_BINARY0 "MW2CR.exe"
 #define H2_BINARY1 "h2_sp64_bnet_ship.exe"
@@ -513,6 +515,13 @@ namespace
 
 int main()
 {
+	// ACTS bridge: commands for games without an in-process module (bo4, cw, mw19, ...),
+	// ACTS linkers, GSC and hash tools. These need no game binary.
+	if (const auto acts_result = acts::handle_command_line(); acts_result.has_value())
+	{
+		return acts_result.value();
+	}
+
 	if (utils::io::file_exists(H1_BINARY))
 	{
 		game::set_mode(game::game_mode::h1);
