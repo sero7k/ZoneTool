@@ -13,6 +13,8 @@
 #include <utils/cryptography.hpp>
 #include <utils/flags.hpp>
 #include <lz4.h>
+#include <future>
+#include <thread>
 
 namespace zonetool::iw7
 {
@@ -127,6 +129,43 @@ namespace zonetool::iw7
 			constexpr float v128_metal_floor = 0.04f; // v131: 0.12 left the gold owner statue pale cream; IW7 metals have no diffuse at all
 			std::atomic<unsigned int> v128_metal_images{0};
 
+			bool compress_bc7(const DirectX::Image& source, const DXGI_FORMAT format, std::uint8_t* destination)
+			{
+				const size_t block_rows = (source.height + 3) / 4;
+				const size_t row_bytes = ((source.width + 3) / 4) * 16;
+				const size_t band_count = std::clamp<size_t>(std::thread::hardware_concurrency(), 1, block_rows);
+				const size_t rows_per_band = (block_rows + band_count - 1) / band_count;
+
+				std::vector<std::future<bool>> bands;
+				for (size_t first = 0; first < block_rows; first += rows_per_band)
+				{
+					const size_t rows = std::min(rows_per_band, block_rows - first);
+					bands.emplace_back(std::async(std::launch::async, [&source, format, destination, first, rows, row_bytes]()
+					{
+						DirectX::Image band = source;
+						band.pixels = source.pixels + first * 4 * source.rowPitch;
+						band.height = std::min(rows * 4, source.height - first * 4);
+						band.slicePitch = band.rowPitch * band.height;
+
+						DirectX::ScratchImage compressed;
+						if (FAILED(DirectX::Compress(band, format, DirectX::TEX_COMPRESS_BC7_QUICK, 0.5f, compressed)) || compressed.GetPixelsSize() != rows * row_bytes)
+						{
+							return false;
+						}
+
+						std::memcpy(destination + first * row_bytes, compressed.GetPixels(), rows * row_bytes);
+						return true;
+					}));
+				}
+
+				bool ok = true;
+				for (auto& band : bands)
+				{
+					ok &= band.get();
+				}
+				return ok;
+			}
+
 			void v128_unmetal(const std::string& vn, DXGI_FORMAT vf, std::vector<std::uint8_t>& vd, unsigned int vw, unsigned int vh)
 			{
 				if (!v128_metal) return;
@@ -166,12 +205,16 @@ namespace zonetool::iw7
 						}
 						if (vchg)
 						{
-							DirectX::ScratchImage venc;
-							if (SUCCEEDED(DirectX::Compress(*vr, vf, DirectX::TEX_COMPRESS_BC7_QUICK | DirectX::TEX_COMPRESS_PARALLEL, 0.5f, venc))
-								&& venc.GetPixelsSize() == vbytes)
+							std::vector<std::uint8_t> venc(vbytes);
+							if (compress_bc7(*vr, vf, venc.data()))
 							{
-								std::memcpy(vd.data() + voff, venc.GetPixels(), vbytes);
+								std::memcpy(vd.data() + voff, venc.data(), vbytes);
 								vany = true;
+							}
+							else
+							{
+								ZONETOOL_WARNING("image %s: BC7 compression failed, colour alpha stays the IW7 specular level", vn.data());
+								return;
 							}
 						}
 					}
