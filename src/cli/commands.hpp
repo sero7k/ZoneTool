@@ -6,14 +6,22 @@ namespace zonetool::cli
 {
 	using command_handler = void(*)(const settings& settings, std::span<const std::string> args);
 
+	struct option
+	{
+		std::string_view name;
+		std::string_view description;
+	};
+
 	struct command
 	{
 		std::string_view name;
 		std::string_view usage;
 		std::string_view description;
 		command_handler handler;
+		std::span<const option> options{};
 	};
 
+	std::span<const option> global_options();
 	std::span<const command> commands();
 	bool execute(const settings& settings, std::span<const std::string> args);
 
@@ -23,6 +31,7 @@ namespace zonetool::cli
 	void dump_asset(const settings& settings, std::span<const std::string> args);
 	void verify_zone(const settings& settings, std::span<const std::string> args);
 	void list_zone(const settings& settings, std::span<const std::string> args);
+	void list_zones(const settings& settings, std::span<const std::string> args);
 	void build_zone(const settings& settings, std::span<const std::string> args);
 	void generate_csv(const settings& settings, std::span<const std::string> args);
 }

@@ -6,11 +6,13 @@ gsc_tool = {
 local engine_sources = {
 	h1 = "h1",
 	h2 = "h2",
+	iw5 = "iw5_pc",
 	iw6 = "iw6_pc",
 	iw7 = "iw7",
 	iw8 = "iw8",
 	s1 = "s1_pc",
 	s2 = "s2",
+	s4 = "s4",
 }
 
 function gsc_tool.import()

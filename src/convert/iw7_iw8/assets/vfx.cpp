@@ -138,7 +138,6 @@ namespace zonetool::iw7::converter::iw8::vfx
 					{
 						converted.material = allocator.allocate<target::Material>();
 						converted.material->name = asset.material->name;
-						material::dump_sprite(asset.material);
 					}
 					break;
 				case PARTICLE_MODULE_INIT_MODEL:
@@ -250,7 +249,7 @@ namespace zonetool::iw7::converter::iw8::vfx
 			return !(module.moduleData.moduleBase.m_flags & PARTICLE_MODULE_FLAG_DISABLED);
 		}
 
-		std::optional<target::ParticleModuleType> convert_module_data(const ParticleModuleDef& module,
+		std::optional<target::ParticleModuleType> convert_module_data(const ParticleModuleDef& module, const bool lit,
 			target::ParticleModuleTypeDef& result, utils::memory::allocator& allocator)
 		{
 			const auto& data = module.moduleData;
@@ -339,6 +338,10 @@ namespace zonetool::iw7::converter::iw8::vfx
 				result.initMaterial.m_materialData = stock_material_data();
 				convert_linked_assets(data.initMaterial.m_linkedAssetList, module.moduleType,
 					result.initMaterial.m_linkedAssetList, allocator);
+				for (auto i = 0; data.initMaterial.m_linkedAssetList.assetList && i < data.initMaterial.m_linkedAssetList.numAssets; i++)
+				{
+					material::dump_sprite(data.initMaterial.m_linkedAssetList.assetList[i].material, lit);
+				}
 				return target::PARTICLE_MODULE_INIT_MATERIAL;
 			}
 			case PARTICLE_MODULE_INIT_MIRROR_TEXTURE:
@@ -555,7 +558,7 @@ namespace zonetool::iw7::converter::iw8::vfx
 			}
 		}
 
-		void convert_group(const ParticleModuleGroupDef& group, target::ParticleModuleGroupDef& result,
+		void convert_group(const ParticleModuleGroupDef& group, const bool lit, target::ParticleModuleGroupDef& result,
 			dropped_modules& dropped, utils::memory::allocator& allocator)
 		{
 			result.disabled = group.disabled;
@@ -565,7 +568,7 @@ namespace zonetool::iw7::converter::iw8::vfx
 			{
 				const auto& module = group.moduleDefs[i];
 				auto& converted = result.moduleDefs[result.numModules];
-				const auto type = convert_module_data(module, converted.moduleData, allocator);
+				const auto type = convert_module_data(module, lit, converted.moduleData, allocator);
 				if (!type)
 				{
 					dropped.insert(module.moduleType);
@@ -617,6 +620,38 @@ namespace zonetool::iw7::converter::iw8::vfx
 			return (flags & 0x3FF) | ((flags & ~0xFFFull) >> 2);
 		}
 
+		void scale_light_intensity(target::ParticleStateDef& state, const float scale)
+		{
+			for (auto i = 0; i < 3; i++)
+			{
+				auto& group = state.moduleGroupDefs[i];
+				for (auto j = 0; j < group.numModules; j++)
+				{
+					auto& module = group.moduleDefs[j];
+					auto& data = module.moduleData;
+					switch (module.moduleType)
+					{
+					case target::PARTICLE_MODULE_INIT_ATTRIBUTES:
+						data.initAttributes.m_sizeMin.v[1] *= scale;
+						data.initAttributes.m_sizeMax.v[1] *= scale;
+						break;
+					case target::PARTICLE_MODULE_SIZE_GRAPH:
+						data.sizeGraph.m_curves[1].scale *= scale;
+						data.sizeGraph.m_curves[4].scale *= scale;
+						data.sizeGraph.m_sizeBegin.v[1] *= scale;
+						data.sizeGraph.m_sizeEnd.v[1] *= scale;
+						break;
+					case target::PARTICLE_MODULE_SIZE_LERP:
+						data.sizeLerp.m_sizeBegin.v[1] *= scale;
+						data.sizeLerp.m_sizeEnd.v[1] *= scale;
+						break;
+					default:
+						break;
+					}
+				}
+			}
+		}
+
 		void convert_state(const ParticleStateDef& state, target::ParticleStateDef& result, dropped_modules& dropped,
 			utils::memory::allocator& allocator)
 		{
@@ -626,7 +661,12 @@ namespace zonetool::iw7::converter::iw8::vfx
 
 			for (auto i = 0; state.moduleGroupDefs && i < 3; i++)
 			{
-				convert_group(state.moduleGroupDefs[i], result.moduleGroupDefs[i], dropped, allocator);
+				convert_group(state.moduleGroupDefs[i], state.flags & PARTICLE_STATE_DEF_FLAG_GPU_LIGHTING, result.moduleGroupDefs[i], dropped, allocator);
+			}
+
+			if (state.elementType == PARTICLE_ELEMENT_TYPE_LIGHT_OMNI)
+			{
+				scale_light_intensity(result, 1.0f / 56.0f); // stock iw7 / iw8 omni intensity
 			}
 
 			if (has_module(result, [](const auto type) { return type == target::PARTICLE_MODULE_SIZE_GRAPH; }))

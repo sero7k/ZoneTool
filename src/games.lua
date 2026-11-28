@@ -1,5 +1,5 @@
 games = {
-	known = {"h1", "h2", "iw6", "iw7", "iw8", "s1", "s2"},
+	known = {"h1", "h2", "iw3", "iw5", "iw6", "iw7", "iw8", "s1", "s2", "s4", "t9"},
 	enabled = {},
 	dependencies = {
 		h1 = function()
@@ -18,20 +18,36 @@ games = {
 			dependencies.use(directxtex)
 			gsc_tool.import_engine("s2")
 		end,
+		iw3 = function()
+			dependencies.use(zlib)
+		end,
+		iw5 = function()
+			dependencies.use(zlib)
+		end,
 		iw6 = function()
 			dependencies.use(directxtex)
 			gsc_tool.import_engine("iw6")
 		end,
 		iw7 = function()
 			dependencies.use(directxtex)
+			gsc_tool.import_engine("iw7")
 		end,
 		iw8 = function()
+			dependencies.use(directxtex)
+		end,
+		s4 = function()
+			dependencies.use(directxtex)
+		end,
+		t9 = function()
 			dependencies.use(directxtex)
 		end,
 	},
 	converter_requires = {
 		s1_h2 = {"h1"},
 		s1_s2 = {"h1"},
+	},
+	converter_stages = {
+		iw3_iw7 = {"iw3_iw4", "iw4_iw5", "iw5_iw7"},
 	},
 	converter_dependencies = {
 		s1_s2 = function()
@@ -53,6 +69,21 @@ games = {
 		iw8_iw7 = function()
 			gsc_tool.import_engine("iw8")
 			gsc_tool.import_engine("iw7")
+		end,
+		iw3_iw7 = function()
+			gsc_tool.import_engine("iw5")
+			gsc_tool.import_engine("iw7")
+		end,
+		s4_iw8 = function()
+			gsc_tool.import_engine("s4")
+			gsc_tool.import_engine("iw8")
+		end,
+		iw5_iw7 = function()
+			gsc_tool.import_engine("iw5")
+			gsc_tool.import_engine("iw7")
+		end,
+		t9_iw8 = function()
+			gsc_tool.import_engine("iw8")
 		end,
 	},
 }
@@ -115,7 +146,7 @@ function games.write_enabled_header()
 	table.insert(lines, "#define ZONETOOL_CONVERTERS(x) " .. table.concat(converter_list, " "))
 
 	local content = table.concat(lines, "\n") .. "\n"
-	local folder = path.join(_MAIN_SCRIPT_DIR, "build/generated")
+	local folder = path.join(_MAIN_SCRIPT_DIR, build_directory, "generated")
 	local file = path.join(folder, "enabled_games.hpp")
 
 	if io.readfile(file) ~= content then
@@ -166,8 +197,29 @@ local function converter_project(converter)
 			"src/convert/" .. name .. "/**.cpp",
 		}
 
+		local enabled_converters = {}
+		for _, enabled in ipairs(games.converters()) do
+			table.insert(enabled_converters, enabled.source .. "_" .. enabled.target)
+		end
+
+		for _, stage in ipairs(games.converter_stages[name] or {}) do
+			if table.contains(enabled_converters, stage) then
+				links {"convert-" .. stage:gsub("_", "-")}
+			else
+				files {
+					"src/convert/" .. stage .. "/**.hpp",
+					"src/convert/" .. stage .. "/**.cpp",
+				}
+				removefiles {
+					"src/convert/" .. stage .. "/converter.*",
+					"src/convert/" .. stage .. "/std_include.*",
+				}
+			end
+		end
+
 		includedirs {
 			"src/convert/" .. name,
+			"src/convert",
 			"src/games",
 			"src/core",
 			"src/common",

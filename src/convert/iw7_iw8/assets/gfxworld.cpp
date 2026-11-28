@@ -10,6 +10,8 @@
 #include <iw8/assets/gfxworld.hpp>
 #include <iw8/assets/gfxworldtransientzone.hpp>
 
+#include <formats/umbra_tome.hpp>
+
 #include <DirectXPackedVector.h>
 
 namespace zonetool::iw7::converter::iw8::gfxworld
@@ -517,6 +519,21 @@ namespace zonetool::iw7::converter::iw8::gfxworld
 			return surfaces;
 		}
 
+		std::vector<bool> get_brush_model_surfaces(const GfxWorld* asset)
+		{
+			std::vector<bool> surfaces(asset->surfaceCount);
+			for (auto i = 1; asset->models && i < asset->modelCount; i++)
+			{
+				const auto& model = asset->models[i];
+				for (auto j = 0u; j < model.surfaceCount && model.startSurfIndex + j < surfaces.size(); j++)
+				{
+					surfaces[model.startSurfIndex + j] = true;
+				}
+			}
+
+			return surfaces;
+		}
+
 		std::array<float, 3> get_sky_rotation_angles(const GfxWorld* asset)
 		{
 			const auto* clip = static_cast<const clipMap_t*>(db_find_asset(ASSET_TYPE_CLIPMAP, asset->name));
@@ -538,12 +555,14 @@ namespace zonetool::iw7::converter::iw8::gfxworld
 		}
 
 		target::Material* convert_surface_material(const Material* handle, const std::unordered_map<unsigned int, const GfxImage*>& sky_surfaces,
-			const std::array<float, 3>& sky_rotation_angles, const unsigned int index, utils::memory::allocator& allocator)
+			const std::array<float, 3>& sky_rotation_angles, const std::vector<bool>& brush_model_surfaces, const unsigned int index,
+			utils::memory::allocator& allocator)
 		{
 			const auto sky = sky_surfaces.find(index);
 			if (sky == sky_surfaces.end())
 			{
-				return convert_lit_material(handle, techset::GENERATED_TECHSET_WORLD, allocator);
+				const auto techset = brush_model_surfaces[index] ? techset::GENERATED_TECHSET_BRUSH_MODEL : techset::GENERATED_TECHSET_WORLD;
+				return convert_lit_material(handle, techset, allocator);
 			}
 
 			const auto name = material::dump_sky(const_cast<Material*>(handle), sky->second, sky_rotation_angles);
@@ -555,6 +574,7 @@ namespace zonetool::iw7::converter::iw8::gfxworld
 		{
 			const auto sky_surfaces = get_sky_surfaces(asset);
 			const auto sky_rotation_angles = get_sky_rotation_angles(asset);
+			const auto brush_model_surfaces = get_brush_model_surfaces(asset);
 			const auto count = asset->surfaceCount;
 			auto& surfaces = world->surfaces;
 			surfaces.count = count;
@@ -578,7 +598,7 @@ namespace zonetool::iw7::converter::iw8::gfxworld
 			{
 				const auto& source = asset->dpvs.surfaces[i];
 				auto& converted = surfaces.surfaces[i];
-				converted.material = convert_surface_material(source.material, sky_surfaces, sky_rotation_angles, i, allocator);
+				converted.material = convert_surface_material(source.material, sky_surfaces, sky_rotation_angles, brush_model_surfaces, i, allocator);
 				if (geometry.valid[i] && converted.material)
 				{
 					converted.tris.posOffset = geometry.surf_data[i].xyzOffset;
@@ -1771,240 +1791,53 @@ namespace zonetool::iw7::converter::iw8::gfxworld
 			}
 		}
 
-		unsigned int allocate_tome(std::vector<unsigned char>& tome, const std::size_t size)
-		{
-			tome.resize((tome.size() + 15) & ~std::size_t(15));
-			const auto offset = static_cast<unsigned int>(tome.size());
-			tome.resize(tome.size() + size);
-			return offset;
-		}
-
-		template <typename T>
-		void write_at(std::vector<unsigned char>& data, const std::size_t offset, const T& value)
-		{
-			std::memcpy(data.data() + offset, &value, sizeof(T));
-		}
-
-		unsigned int crc32c(const unsigned char* data, const std::size_t size)
-		{
-			auto crc = 0xFFFFFFFFu;
-			for (std::size_t i = 0; i < size; i++)
-			{
-				crc ^= data[i];
-				for (auto bit = 0; bit < 8; bit++)
-				{
-					crc = (crc >> 1) ^ (0x82F63B78u & (0u - (crc & 1u)));
-				}
-			}
-
-			return ~crc;
-		}
-
-		unsigned int umbra_index_width(const unsigned int count)
-		{
-			auto width = 1u;
-			while (width < 31 && (1u << width) < count)
-			{
-				width++;
-			}
-
-			return width;
-		}
-
-		std::vector<unsigned char> pack_umbra_object_list(const unsigned int count, const unsigned int width)
-		{
-			std::vector<unsigned char> result(((static_cast<std::uint64_t>(count) * width + 31) / 32) * 4);
-			auto bit_offset = std::uint64_t{};
-			for (auto object = 0u; object < count; object++)
-			{
-				for (auto bit = 0u; bit < width; bit++)
-				{
-					if (object & (1u << bit))
-					{
-						const auto current = bit_offset + bit;
-						result[static_cast<std::size_t>(current) >> 3] |= static_cast<unsigned char>(1u << (current & 7));
-					}
-				}
-
-				bit_offset += width;
-			}
-
-			return result;
-		}
-
 		void build_umbra_tome(const target::Bounds& scene, const unsigned int instance_count,
 			const std::vector<target::Bounds>& instance_bounds, const unsigned int light_count, target::GfxWorld* world,
 			utils::memory::allocator& allocator)
 		{
-			float minimum[3];
-			float maximum[3];
+			umbra_tome::object scene_object{};
 			for (auto i = 0; i < 3; i++)
 			{
-				minimum[i] = scene.midPoint[i] - scene.halfSize[i];
-				maximum[i] = scene.midPoint[i] + scene.halfSize[i];
+				scene_object.minimum[i] = scene.midPoint[i] - scene.halfSize[i];
+				scene_object.maximum[i] = scene.midPoint[i] + scene.halfSize[i];
 			}
 
 			for (const auto& bounds : instance_bounds)
 			{
 				for (auto i = 0; i < 3; i++)
 				{
-					minimum[i] = std::min(minimum[i], bounds.midPoint[i] - bounds.halfSize[i]);
-					maximum[i] = std::max(maximum[i], bounds.midPoint[i] + bounds.halfSize[i]);
+					scene_object.minimum[i] = std::min(scene_object.minimum[i], bounds.midPoint[i] - bounds.halfSize[i]);
+					scene_object.maximum[i] = std::max(scene_object.maximum[i], bounds.midPoint[i] + bounds.halfSize[i]);
 				}
 			}
 
-			const auto object_count = world->surfaces.count + instance_count + light_count;
-			if (!object_count || object_count > 0x01000000)
-			{
-				ZONETOOL_WARNING("gfxworld \"%s\": %u umbra objects cannot be represented", world->name, object_count);
-				return;
-			}
-
-			std::vector<unsigned int> user_ids;
-			user_ids.reserve(object_count);
+			std::vector<umbra_tome::object> objects(world->surfaces.count + instance_count + light_count, scene_object);
+			auto* object = objects.data();
 			for (auto i = 0u; i < world->surfaces.count; i++)
 			{
-				user_ids.emplace_back(i);
+				(object++)->user_id = i;
 			}
 
 			for (auto i = 0u; i < instance_count; i++)
 			{
-				user_ids.emplace_back(0x10000000u + i);
+				(object++)->user_id = 0x10000000u + i;
 			}
 
 			for (auto i = 0u; i < light_count; i++)
 			{
-				user_ids.emplace_back(0x40000000u + i);
+				(object++)->user_id = 0x40000000u + i;
 			}
 
-			const auto index_width = umbra_index_width(object_count);
-			const auto object_list = pack_umbra_object_list(object_count, index_width);
-
-			target::UmbraTomeHeader header{};
-			header.version = 0xD6000014;
-			header.unitsPerMeter = 128.0f;
-			header.treeDepth = 33;
-			header.objectCount = object_count;
-			header.objectCount2 = object_count;
-			header.indexWidth = index_width;
-			header.cellCount = 1;
-			header.tileCount = 1;
-			for (auto i = 0; i < 3; i++)
+			const auto tome = umbra_tome::build_single_cell(scene_object.minimum, scene_object.maximum, objects);
+			if (tome.empty())
 			{
-				header.boundsMin[i] = minimum[i];
-				header.boundsMax[i] = maximum[i];
-				header.rootBoundsMin[i] = minimum[i];
-				header.rootBoundsMax[i] = maximum[i];
+				ZONETOOL_WARNING("gfxworld \"%s\": %zu umbra objects cannot be represented", world->name, objects.size());
+				return;
 			}
 
-			std::vector<unsigned char> tome(sizeof(header));
-			std::memcpy(tome.data(), &header, sizeof(header));
-
-			const auto top_tree = allocate_tome(tome, sizeof(unsigned int));
-			write_at(tome, top_tree, 3u);
-			const auto top_map = allocate_tome(tome, sizeof(unsigned int));
-			write_at(tome, top_map, 0u);
-			write_at(tome, offsetof(target::UmbraTomeHeader, topTree), top_tree);
-			write_at(tome, offsetof(target::UmbraTomeHeader, topMap), top_map);
-
-			const auto object_bounds = allocate_tome(tome, static_cast<std::size_t>(object_count) * 24);
-			const auto object_distances = allocate_tome(tome, static_cast<std::size_t>(object_count) * 32);
-			for (auto object = 0u; object < object_count; object++)
-			{
-				const auto bounds_offset = object_bounds + static_cast<std::size_t>(object) * 24;
-				std::memcpy(tome.data() + bounds_offset, minimum, sizeof(minimum));
-				std::memcpy(tome.data() + bounds_offset + 12, maximum, sizeof(maximum));
-
-				const auto distance_offset = object_distances + static_cast<std::size_t>(object) * 32;
-				std::memcpy(tome.data() + distance_offset, minimum, sizeof(minimum));
-				write_at(tome, distance_offset + 12, 0.0f);
-				std::memcpy(tome.data() + distance_offset + 16, maximum, sizeof(maximum));
-				write_at(tome, distance_offset + 28, std::numeric_limits<float>::infinity());
-			}
-
-			write_at(tome, offsetof(target::UmbraTomeHeader, objectBounds), object_bounds);
-			write_at(tome, offsetof(target::UmbraTomeHeader, objectDistances), object_distances);
-
-			const auto ids = allocate_tome(tome, static_cast<std::size_t>(object_count) * 4);
-			std::memcpy(tome.data() + ids, user_ids.data(), user_ids.size() * sizeof(unsigned int));
-			write_at(tome, offsetof(target::UmbraTomeHeader, userIDs), ids);
-
-			const auto lists = allocate_tome(tome, object_list.size());
-			std::memcpy(tome.data() + lists, object_list.data(), object_list.size());
-			write_at(tome, offsetof(target::UmbraTomeHeader, objectLists), lists);
-
-			const auto cell_starts = allocate_tome(tome, 8);
-			write_at(tome, cell_starts, 0u);
-			write_at(tome, cell_starts + 4, 1u);
-			write_at(tome, offsetof(target::UmbraTomeHeader, cellStarts), cell_starts);
-
-			const auto tile_lod_levels = allocate_tome(tome, 4);
-			write_at(tome, tile_lod_levels, 1.0f);
-			write_at(tome, offsetof(target::UmbraTomeHeader, tileLodLevels), tile_lod_levels);
-
-			const auto tile_offsets = allocate_tome(tome, 4);
-			write_at(tome, offsetof(target::UmbraTomeHeader, tileOffsets), tile_offsets);
-
-			const auto tile_portal_expands = allocate_tome(tome, 4);
-			write_at(tome, tile_portal_expands, 0.0f);
-			write_at(tome, offsetof(target::UmbraTomeHeader, tilePortalExpands), tile_portal_expands);
-
-			const auto tile_offset = allocate_tome(tome, sizeof(target::UmbraTomeTile));
-			target::UmbraTomeTile tile{};
-			std::memcpy(tile.boundsMin, minimum, sizeof(minimum));
-			std::memcpy(tile.boundsMax, maximum, sizeof(maximum));
-			tile.depth = 33;
-			tile.unk0x34 = 1;
-
-			auto largest_extent = 0.0;
-			for (auto i = 0; i < 3; i++)
-			{
-				largest_extent = std::max(largest_extent, static_cast<double>(maximum[i]) - minimum[i]);
-			}
-
-			const auto required_scale = largest_extent / 65536.0;
-			auto scale = static_cast<float>(required_scale);
-			if (static_cast<double>(scale) < required_scale)
-			{
-				scale = std::nextafter(scale, std::numeric_limits<float>::infinity());
-			}
-
-			tile.scale = scale;
-			tile.inverseScale = 1.0f / scale;
-
-			const auto tile_tree = allocate_tome(tome, 4);
-			write_at(tome, tile_tree, 3u);
-			tile.tree = tile_tree - tile_offset;
-			const auto tile_map = allocate_tome(tome, 8);
-			write_at(tome, tile_map, 0u);
-			tile.map = tile_map - tile_offset;
-			const auto cell_indices = allocate_tome(tome, 8);
-			write_at(tome, cell_indices, 0u);
-			write_at(tome, cell_indices + 4, 0xFFFFFFFFu);
-			tile.cellIndices = cell_indices - tile_offset;
-
-			const auto cell_offset = allocate_tome(tome, sizeof(target::UmbraTomeCell));
-			target::UmbraTomeCell cell{};
-			cell.objectCount = object_count;
-			cell.unk0x10 = 0xFFFFFFFFu;
-			cell.unk0x14 = 0x80000000u;
-			cell.unk0x1C = 0xFFFFu;
-			cell.unk0x20 = 0xFFFFFFFFu;
-			std::memcpy(tome.data() + cell_offset, &cell, sizeof(cell));
-			tile.cell = cell_offset - tile_offset;
-
-			tome.resize((tome.size() + 15) & ~std::size_t(15));
-			tile.sizeAndFlags = (static_cast<unsigned int>(tome.size()) - tile_offset) << 8 | 3u;
-			std::memcpy(tome.data() + tile_offset, &tile, sizeof(tile));
-			write_at(tome, tile_offsets, tile_offset);
-
-			const auto size = static_cast<unsigned int>(tome.size());
-			write_at(tome, offsetof(target::UmbraTomeHeader, size), size);
-			write_at(tome, offsetof(target::UmbraTomeHeader, checksum), crc32c(tome.data() + 8, size - 8));
-
-			world->umbraTomeSize = size;
-			world->umbraTomeData = make_array<char>(size, allocator);
-			std::memcpy(world->umbraTomeData, tome.data(), size);
+			world->umbraTomeSize = static_cast<unsigned int>(tome.size());
+			world->umbraTomeData = make_array<char>(world->umbraTomeSize, allocator);
+			std::memcpy(world->umbraTomeData, tome.data(), tome.size());
 		}
 
 		target::GfxWorldTransientZone* convert_transient_zone(const GfxWorld* asset, const world_geometry& geometry,

@@ -7,12 +7,6 @@ namespace havok::tagfile
 {
 	namespace
 	{
-		struct chunk
-		{
-			std::size_t begin;
-			std::size_t end;
-		};
-
 		std::uint32_t read_big_endian(std::string_view data, const std::size_t offset)
 		{
 			const auto* bytes = reinterpret_cast<const std::uint8_t*>(data.data() + offset);
@@ -293,11 +287,11 @@ namespace havok::tagfile
 		return {target.type, target.offset, target.count};
 	}
 
-	file::file(std::string_view data)
+	file::file(std::string_view data, const file* compendium)
 	{
 		std::unordered_map<std::string, chunk> chunks;
 		read_chunks(data, 0, data.size(), chunks);
-		for (const auto* name : {"DATA", "TSTR", "TNA1", "FSTR", "TBDY", "ITEM"})
+		for (const auto* name : {"DATA", "ITEM"})
 		{
 			if (!chunks.contains(name))
 			{
@@ -308,8 +302,41 @@ namespace havok::tagfile
 		const auto& data_chunk = chunks["DATA"];
 		this->data_ = data.substr(data_chunk.begin, data_chunk.end - data_chunk.begin);
 
-		const auto type_strings = read_strings(data, chunks["TSTR"]);
-		const auto member_strings = read_strings(data, chunks["FSTR"]);
+		if (chunks.contains("TNA1"))
+		{
+			this->read_types(data, chunks);
+		}
+		else if (compendium && chunks.contains("TCRF"))
+		{
+			this->types_ = compendium->types_;
+		}
+		else
+		{
+			throw std::runtime_error("havok tagfile: no types");
+		}
+
+		const auto& items = chunks["ITEM"];
+		for (auto offset = items.begin; offset + 12 <= items.end; offset += 12)
+		{
+			const auto type_and_flags = read_value<std::uint32_t>(data, offset);
+			this->items_.push_back({type_and_flags & 0xFFFFFF, type_and_flags >> 24,
+				read_value<std::uint32_t>(data, offset + 4), read_value<std::uint32_t>(data, offset + 8)});
+		}
+	}
+
+	void file::read_types(std::string_view data, std::unordered_map<std::string, chunk>& chunks)
+	{
+		const auto sdk_2020 = chunks.contains("TST1");
+		for (const auto* name : {sdk_2020 ? "TST1" : "TSTR", sdk_2020 ? "FST1" : "FSTR", "TBDY"})
+		{
+			if (!chunks.contains(name))
+			{
+				throw std::runtime_error(std::format("havok tagfile: missing {} chunk", name));
+			}
+		}
+
+		const auto type_strings = read_strings(data, chunks[sdk_2020 ? "TST1" : "TSTR"]);
+		const auto member_strings = read_strings(data, chunks[sdk_2020 ? "FST1" : "FSTR"]);
 
 		packed_reader names(data, chunks["TNA1"]);
 		this->types_.resize(names.read());
@@ -368,6 +395,10 @@ namespace havok::tagfile
 					type_member member{};
 					member.name = member_strings.at(bodies.read());
 					member.flags = static_cast<std::uint32_t>(bodies.read());
+					if (member.flags & member_has_attribute)
+					{
+						bodies.read();
+					}
 					member.offset = static_cast<std::uint32_t>(bodies.read());
 					member.type = static_cast<std::uint32_t>(bodies.read());
 					info.members.emplace_back(std::move(member));
@@ -398,14 +429,6 @@ namespace havok::tagfile
 				info.hash = hashes.read_u32();
 				info.has_hash = true;
 			}
-		}
-
-		const auto& items = chunks["ITEM"];
-		for (auto offset = items.begin; offset + 12 <= items.end; offset += 12)
-		{
-			const auto type_and_flags = read_value<std::uint32_t>(data, offset);
-			this->items_.push_back({type_and_flags & 0xFFFFFF, type_and_flags >> 24,
-				read_value<std::uint32_t>(data, offset + 4), read_value<std::uint32_t>(data, offset + 8)});
 		}
 	}
 
@@ -479,6 +502,29 @@ namespace havok::tagfile
 	const item& file::get_item(const std::uint64_t index) const
 	{
 		return this->items_.at(index);
+	}
+
+	const item* file::find_item(const std::size_t offset) const
+	{
+		for (auto i = 1u; i < this->items_.size(); i++)
+		{
+			if (this->items_[i].offset == offset)
+			{
+				return &this->items_[i];
+			}
+		}
+
+		return nullptr;
+	}
+
+	const std::vector<item>& file::items() const
+	{
+		return this->items_;
+	}
+
+	const std::vector<type_info>& file::types() const
+	{
+		return this->types_;
 	}
 
 	std::string_view file::data() const
@@ -671,13 +717,19 @@ namespace havok::tagfile
 		}
 	}
 
-	std::string writer::finish(const std::uint32_t root_item)
+	void writer::use_compendium(const std::uint64_t id, std::vector<std::uint32_t> type_map)
 	{
-		if (!root_item || root_item >= this->items_.size())
-		{
-			throw std::runtime_error("havok tagfile: bad root item");
-		}
+		this->compendium_id_ = id;
+		this->compendium_types_ = std::move(type_map);
+	}
 
+	std::uint32_t writer::output_type(const std::uint32_t type) const
+	{
+		return this->compendium_types_.empty() ? type : this->compendium_types_.at(type);
+	}
+
+	std::string writer::type_section() const
+	{
 		std::vector<std::string> type_names;
 		std::string type_names_chunk;
 		append_packed(type_names_chunk, this->types_.size());
@@ -780,10 +832,28 @@ namespace havok::tagfile
 			member_names_chunk.push_back('\0');
 		}
 
+		std::string type_chunk;
+		write_chunk(type_chunk, "TPTR", std::string(this->types_.size() * 8, '\0'), 1);
+		write_chunk(type_chunk, "TSTR", std::move(names), 1);
+		write_chunk(type_chunk, "TNA1", std::move(type_names_chunk), 1);
+		write_chunk(type_chunk, "FSTR", std::move(member_names_chunk), 1);
+		write_chunk(type_chunk, "TBDY", std::move(bodies), 1);
+		write_chunk(type_chunk, "THSH", std::move(hashes), 1);
+		write_chunk(type_chunk, "TPAD", {}, 1);
+		return type_chunk;
+	}
+
+	std::string writer::finish(const std::uint32_t root_item)
+	{
+		if (!root_item || root_item >= this->items_.size())
+		{
+			throw std::runtime_error("havok tagfile: bad root item");
+		}
+
 		std::string item_table;
 		for (const auto& entry : this->items_)
 		{
-			const auto type_and_flags = entry.type | (entry.flags << 24);
+			const auto type_and_flags = this->output_type(entry.type) | (entry.flags << 24);
 			append_number(item_table, type_and_flags);
 			append_number(item_table, entry.offset);
 			append_number(item_table, entry.count);
@@ -793,22 +863,13 @@ namespace havok::tagfile
 		for (auto& [type, offsets] : this->patches_)
 		{
 			std::ranges::sort(offsets);
-			append_number(patch_table, type);
+			append_number(patch_table, this->output_type(type));
 			append_number(patch_table, static_cast<std::uint32_t>(offsets.size()));
 			for (const auto offset : offsets)
 			{
 				append_number(patch_table, offset);
 			}
 		}
-
-		std::string type_chunk;
-		write_chunk(type_chunk, "TPTR", std::string(this->types_.size() * 8, '\0'), 1);
-		write_chunk(type_chunk, "TSTR", std::move(names), 1);
-		write_chunk(type_chunk, "TNA1", std::move(type_names_chunk), 1);
-		write_chunk(type_chunk, "FSTR", std::move(member_names_chunk), 1);
-		write_chunk(type_chunk, "TBDY", std::move(bodies), 1);
-		write_chunk(type_chunk, "THSH", std::move(hashes), 1);
-		write_chunk(type_chunk, "TPAD", {}, 1);
 
 		std::string index_chunk;
 		write_chunk(index_chunk, "ITEM", std::move(item_table), 1);
@@ -818,7 +879,17 @@ namespace havok::tagfile
 		std::string contents;
 		write_chunk(contents, "SDKV", "20180200", 1);
 		write_chunk(contents, "DATA", std::move(this->data_), 1);
-		write_chunk(contents, "TYPE", std::move(type_chunk), 0);
+		if (this->compendium_types_.empty())
+		{
+			write_chunk(contents, "TYPE", this->type_section(), 0);
+		}
+		else
+		{
+			std::string compendium_reference;
+			append_number(compendium_reference, this->compendium_id_);
+			compendium_reference.append(16, '\0');
+			write_chunk(contents, "TCRF", std::move(compendium_reference), 1);
+		}
 		write_chunk(contents, "INDX", std::move(index_chunk), 0);
 		write_chunk(result, "TAG0", std::move(contents), 0);
 		return result;

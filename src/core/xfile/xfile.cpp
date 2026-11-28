@@ -246,6 +246,42 @@ namespace zonetool::xfile
 			file.payload = zone_reader.rest();
 		}
 
+		void read_iw3(byte_reader& reader, const format& format, fastfile& file)
+		{
+			reader.skip(sizeof(std::uint64_t) + sizeof(std::uint32_t));
+
+			const auto zone = inflate_zlib(reader.rest(), MAX_WBITS, 0);
+
+			byte_reader zone_reader(zone);
+			zone_reader.skip(sizeof(std::uint32_t) * 2);
+
+			file.block_sizes.resize(format.block_count);
+			for (auto& size : file.block_sizes)
+			{
+				size = zone_reader.read<std::uint32_t>();
+			}
+
+			file.payload = zone_reader.rest();
+		}
+
+		void read_iw4(byte_reader& reader, const format& format, fastfile& file)
+		{
+			reader.skip(sizeof(std::uint64_t) + sizeof(std::uint32_t) + sizeof(std::uint8_t) + sizeof(std::uint64_t));
+
+			const auto zone = inflate_zlib(read_signed_data(reader, format, file.is_signed), MAX_WBITS, 0);
+
+			byte_reader zone_reader(zone);
+			zone_reader.skip(sizeof(std::uint32_t) * 2);
+
+			file.block_sizes.resize(format.block_count);
+			for (auto& size : file.block_sizes)
+			{
+				size = zone_reader.read<std::uint32_t>();
+			}
+
+			file.payload = zone_reader.rest();
+		}
+
 		std::vector<XStreamFile> read_iw7_stream_files(byte_reader& reader, const std::size_t count)
 		{
 			std::vector<XStreamFile> files(count);
@@ -430,6 +466,30 @@ namespace zonetool::xfile
 			return versions[transient_file_type];
 		}
 
+		std::uint32_t s4_expected_xfile_version(const std::uint8_t transient_file_type)
+		{
+			constexpr std::uint32_t versions[] = {0x13FE, 0x13FE, 0x13E7, 0x13E7, 0x13E7, 0x13E7, 0x13E7, 0x13FE, 0x13E7, 0x13E7, 0x13E7, 0x13E7, 0x13E7, 0x13E7, 0x13E7}; // 0x147BC9278
+			if (transient_file_type >= std::size(versions))
+			{
+				throw std::runtime_error(std::format("unknown transient file type {}", transient_file_type));
+			}
+
+			return versions[transient_file_type];
+		}
+
+		template <typename Header>
+		std::uint32_t expected_xfile_version(const std::uint8_t transient_file_type)
+		{
+			if constexpr (std::is_same_v<Header, s4_file_header>)
+			{
+				return s4_expected_xfile_version(transient_file_type);
+			}
+			else
+			{
+				return iw8_expected_xfile_version(transient_file_type);
+			}
+		}
+
 		std::uint8_t iw8_block_codec(const std::uint8_t type)
 		{
 			switch (type)
@@ -515,19 +575,20 @@ namespace zonetool::xfile
 			return decompress_iw8_iwc(read_signed_data(reader, format, is_signed));
 		}
 
-		std::optional<iw8_patch_header> read_iw8_patch(const std::filesystem::path& path, const format& format,
-			const iw8_file_header& header, std::string& zone)
+		template <typename Header>
+		std::optional<patch_header<Header>> read_iw8_patch(const std::filesystem::path& path, const format& format,
+			const Header& header, std::string& zone)
 		{
 			const auto patch_path = std::filesystem::path(path).replace_extension(".fp");
 
 			std::string data;
-			if (!game_files::read(patch_path, data) || data.size() < sizeof(iw8_patch_header))
+			if (!game_files::read(patch_path, data) || data.size() < sizeof(patch_header<Header>))
 			{
 				return {};
 			}
 
 			byte_reader reader(data);
-			const auto patch = reader.read<iw8_patch_header>();
+			const auto patch = reader.read<patch_header<Header>>();
 			if (std::string_view(patch.magic, sizeof(patch.magic)) != "IWffd100")
 			{
 				throw std::runtime_error("patch file has no IWffd100 magic");
@@ -554,21 +615,22 @@ namespace zonetool::xfile
 			return patch;
 		}
 
-		void read_iw8(const std::filesystem::path& path, byte_reader& reader, const format& format, fastfile& file)
+		template <typename Header>
+		Header read_iw8(const std::filesystem::path& path, byte_reader& reader, const format& format, fastfile& file)
 		{
-			if (format.block_count != iw8_block_count)
+			if (format.block_count != std::size(Header{}.block_sizes))
 			{
-				throw std::runtime_error(std::format("IW8 zones have {} blocks", iw8_block_count));
+				throw std::runtime_error(std::format("{} zones have {} blocks", format.unsigned_magic, std::size(Header{}.block_sizes)));
 			}
 
-			auto header = reader.read<iw8_file_header>();
+			auto header = reader.read<Header>();
 			auto zone = read_iw8_resident_data(reader.rest(), format, file.is_signed);
 			if (const auto patch = read_iw8_patch(path, format, header, zone))
 			{
 				header = patch->target;
 			}
 
-			const auto expected_version = iw8_expected_xfile_version(header.transient_file_type);
+			const auto expected_version = expected_xfile_version<Header>(header.transient_file_type);
 			if (header.xfile_version != expected_version)
 			{
 				throw std::runtime_error(std::format("xfile version 0x{:X} is not 0x{:X}", header.xfile_version, expected_version));
@@ -581,7 +643,211 @@ namespace zonetool::xfile
 
 			file.block_sizes.assign(std::begin(header.block_sizes), std::end(header.block_sizes));
 			file.payload = std::move(zone);
-			file.iw8_header = header;
+			return header;
+		}
+
+		template <typename T>
+		void read_t9_chunk(const std::string_view data, T& value)
+		{
+			if (data.size() < sizeof(T))
+			{
+				throw std::runtime_error(std::format("header chunk has 0x{:X} bytes, not 0x{:X}", data.size(), sizeof(T)));
+			}
+
+			std::memcpy(&value, data.data(), sizeof(T));
+		}
+
+		t9_file_header read_t9_header(byte_reader& reader, const format& format)
+		{
+			if (reader.read_view(format.unsigned_magic.size()) != format.unsigned_magic)
+			{
+				throw std::runtime_error(std::format("no {} magic", format.unsigned_magic));
+			}
+
+			t9_file_header header{};
+			const auto chunk_count = reader.read<std::uint32_t>();
+			for (auto i = 0u; i < chunk_count; i++)
+			{
+				const auto type = reader.read<t9_chunk>();
+				const auto data = reader.read_view(reader.read<std::uint32_t>());
+				header.chunks.emplace_back(type, std::string(data));
+
+				switch (type)
+				{
+				case t9_chunk::version:
+					read_t9_chunk(data, header.version);
+					break;
+				case t9_chunk::platform_data:
+					read_t9_chunk(data, header.platform);
+					break;
+				case t9_chunk::size_data:
+					read_t9_chunk(data, header.size);
+					break;
+				case t9_chunk::block_sizes:
+					if (data.size() != sizeof(header.block_sizes))
+					{
+						throw std::runtime_error(std::format("zone has {} blocks, not {}", data.size() / sizeof(std::uint64_t), t9_block_count));
+					}
+					read_t9_chunk(data, header.block_sizes);
+					break;
+				case t9_chunk::fastfile_info:
+					read_t9_chunk(data, header.info);
+					break;
+				}
+			}
+
+			if (header.version != format.version)
+			{
+				throw std::runtime_error(std::format("version 0x{:X} is not 0x{:X}", header.version, format.version));
+			}
+
+			return header;
+		}
+
+		std::uint8_t t9_block_codec(const t9_compression compression)
+		{
+			switch (compression)
+			{
+			case t9_compression::none:
+				return codec_none;
+			case t9_compression::zlib:
+			case t9_compression::zlib_hc:
+				return codec_zlib_size;
+			case t9_compression::lz4:
+			case t9_compression::lz4_hc:
+				return codec_lz4;
+			case t9_compression::oodle_kraken:
+			case t9_compression::oodle_mermaid:
+			case t9_compression::oodle_selkie:
+			case t9_compression::oodle_lzna:
+				return codec_oodle;
+			}
+
+			throw std::runtime_error(std::format("unknown zone compression {}", static_cast<int>(compression)));
+		}
+
+		std::string read_t9_blocks(byte_reader& reader, const t9_file_header& header)
+		{
+			const auto codec = t9_block_codec(header.platform.compression);
+
+			std::string result;
+			result.reserve(header.size.size);
+
+			while (true)
+			{
+				const auto position = reader.position();
+				const auto stream = reader.read<t9_stream_header>();
+				if (!stream.aligned_size)
+				{
+					break;
+				}
+
+				if (stream.offset != position)
+				{
+					throw std::runtime_error(std::format("block header at 0x{:X} has offset 0x{:X}", position, stream.offset));
+				}
+
+				if (!stream.decompressed_size)
+				{
+					const auto aligned_position = (reader.position() + 0x7FFFFF) & ~std::size_t(0x7FFFFF);
+					reader.skip(aligned_position - reader.position());
+					continue;
+				}
+
+				const auto block = reader.read_view(stream.aligned_size);
+				if (stream.compressed_size > block.size())
+				{
+					throw std::runtime_error(std::format("block at 0x{:X} is larger than its aligned size", position));
+				}
+
+				const auto start = result.size();
+				result.resize(start + stream.decompressed_size);
+
+				try
+				{
+					decompress_block(codec, block.substr(0, stream.compressed_size), result.data() + start, stream.decompressed_size);
+				}
+				catch (const std::exception& e)
+				{
+					throw std::runtime_error(std::format("{} in block at 0x{:X}", e.what(), position));
+				}
+			}
+
+			return result;
+		}
+
+		std::string read_t9_patch_delta(const std::string_view data, const t9_file_header& target)
+		{
+			switch (target.platform.compression)
+			{
+			case t9_compression::bdelta_uncompressed:
+				return std::string(data);
+			case t9_compression::bdelta_zlib:
+				return inflate_zlib(data, MAX_WBITS, target.size.size);
+			}
+
+			throw std::runtime_error(std::format("unsupported patch compression {}", static_cast<int>(target.platform.compression)));
+		}
+
+		void apply_t9_patch(const std::filesystem::path& path, const format& format, t9_file_header& header, std::string& zone)
+		{
+			const auto patch_path = std::filesystem::path(path).replace_extension(".fd");
+
+			std::string data;
+			if (!game_files::read(patch_path, data))
+			{
+				return;
+			}
+
+			byte_reader reader(data);
+			reader.read<t9_patch_header>();
+			const auto target = read_t9_header(reader, format);
+			const auto base = read_t9_header(reader, format);
+
+			if (std::memcmp(base.info.signature, header.info.signature, sizeof(header.info.signature)))
+			{
+				throw std::runtime_error("patch file is for another version of the zone");
+			}
+
+			zone = vcdiff::apply(read_t9_patch_delta(reader.rest(), target), zone);
+			if (zone.size() != target.size.size)
+			{
+				throw std::runtime_error(std::format("patched zone size 0x{:X} is not 0x{:X}", zone.size(), target.size.size));
+			}
+
+			header = target;
+		}
+
+		fastfile read_t9(const std::filesystem::path& path, const std::string_view data, const format& format)
+		{
+			if (format.block_count != t9_block_count)
+			{
+				throw std::runtime_error(std::format("T9 zones have {} blocks", t9_block_count));
+			}
+
+			byte_reader reader(data);
+			auto header = read_t9_header(reader, format);
+			if (header.platform.encrypted)
+			{
+				throw std::runtime_error("encrypted zones are not supported");
+			}
+
+			auto zone = read_t9_blocks(reader, header);
+			if (zone.size() != header.size.size)
+			{
+				throw std::runtime_error(std::format("zone size 0x{:X} does not match data size 0x{:X}", header.size.size, zone.size()));
+			}
+
+			apply_t9_patch(path, format, header, zone);
+
+			fastfile file{};
+			file.magic = std::string(format.unsigned_magic);
+			file.version = header.version;
+			file.is_signed = false;
+			file.block_sizes.assign(std::begin(header.block_sizes), std::end(header.block_sizes));
+			file.payload = std::move(zone);
+			file.t9_header = header;
+			return file;
 		}
 	}
 
@@ -618,6 +884,11 @@ namespace zonetool::xfile
 		if (!game_files::read(path, data))
 		{
 			throw std::runtime_error("cannot read file");
+		}
+
+		if (format.container == container::t9)
+		{
+			return read_t9(path, data, format);
 		}
 
 		struct
@@ -659,7 +930,16 @@ namespace zonetool::xfile
 			read_s2(reader, format, file);
 			break;
 		case container::iw8:
-			read_iw8(path, reader, format, file);
+			file.iw8_header = read_iw8<iw8_file_header>(path, reader, format, file);
+			break;
+		case container::s4:
+			file.s4_header = read_iw8<s4_file_header>(path, reader, format, file);
+			break;
+		case container::iw3:
+			read_iw3(reader, format, file);
+			break;
+		case container::iw4:
+			read_iw4(reader, format, file);
 			break;
 		}
 
@@ -675,6 +955,17 @@ namespace zonetool::xfile
 		void append(std::string& output, const T& value)
 		{
 			output.append(reinterpret_cast<const char*>(&value), sizeof(T));
+		}
+
+		template <typename T>
+		void write_t9_chunk(std::string& data, const T& value)
+		{
+			if (data.size() < sizeof(T))
+			{
+				throw std::runtime_error(std::format("header chunk has 0x{:X} bytes, not 0x{:X}", data.size(), sizeof(T)));
+			}
+
+			std::memcpy(data.data(), &value, sizeof(T));
 		}
 
 		void append_stream_keys(std::string& output, const std::vector<XStreamFileKey>& keys)
@@ -891,32 +1182,122 @@ namespace zonetool::xfile
 		}
 	}
 
+	namespace
+	{
+		template <typename Header>
+		void write_iw8_header(const std::filesystem::path& path, const format& format, const fastfile& file, Header header,
+			const std::string_view payload)
+		{
+			const auto resident = file.is_compressed ? compress_iw8_iwc(payload) : store_iw8_iwc(payload);
+
+			std::memcpy(header.magic, format.unsigned_magic.data(), sizeof(header.magic));
+			header.header_version = format.version;
+			header.xfile_version = expected_xfile_version<Header>(header.transient_file_type);
+			header.dash_compress_build = 0;
+			header.dash_encrypt_build = 0;
+			header.resident_part_size = static_cast<std::uint32_t>(resident.size());
+			header.resident_hash = 0;
+			header.size = payload.size();
+			for (std::size_t i = 0; i < std::size(header.block_sizes); i++)
+			{
+				header.block_sizes[i] = i < file.block_sizes.size() ? file.block_sizes[i] : 0;
+			}
+
+			std::string output;
+			append(output, header);
+			output.append(resident);
+
+			std::filesystem::create_directories(path.parent_path());
+			if (!utils::io::write_file(path.string(), output))
+			{
+				throw std::runtime_error(std::format("cannot write \"{}\"", path.string()));
+			}
+		}
+	}
+
 	void write_iw8(const std::filesystem::path& path, const format& format, const fastfile& file, const std::string_view payload)
 	{
-		if (format.container != container::iw8)
+		switch (format.container)
 		{
-			throw std::runtime_error("write_iw8 needs the iw8 container");
+		case container::iw8:
+			write_iw8_header(path, format, file, file.iw8_header, payload);
+			break;
+		case container::s4:
+			write_iw8_header(path, format, file, file.s4_header, payload);
+			break;
+		default:
+			throw std::runtime_error("write_iw8 needs the iw8 or s4 container");
+		}
+	}
+
+	void write_t9(const std::filesystem::path& path, const format& format, const fastfile& file, const std::string_view payload)
+	{
+		if (format.container != container::t9)
+		{
+			throw std::runtime_error("write_t9 needs the t9 container");
 		}
 
-		const auto resident = file.is_compressed ? compress_iw8_iwc(payload) : store_iw8_iwc(payload);
+		auto header = file.t9_header;
+		if (header.chunks.empty())
+		{
+			throw std::runtime_error("write_t9 needs the header chunks of a stock zone");
+		}
 
-		auto header = file.iw8_header;
-		std::memcpy(header.magic, format.unsigned_magic.data(), sizeof(header.magic));
-		header.header_version = format.version;
-		header.xfile_version = iw8_expected_xfile_version(header.transient_file_type);
-		header.dash_compress_build = 0;
-		header.dash_encrypt_build = 0;
-		header.resident_part_size = static_cast<std::uint32_t>(resident.size());
-		header.resident_hash = 0;
-		header.size = payload.size();
-		for (std::size_t i = 0; i < iw8_block_count; i++)
+		header.version = format.version;
+		header.platform.compression = t9_compression::oodle_kraken;
+		header.platform.encrypted = 0;
+		header.size.size = payload.size();
+		std::memset(header.info.signature, 0, sizeof(header.info.signature));
+		for (std::size_t i = 0; i < t9_block_count; i++)
 		{
 			header.block_sizes[i] = i < file.block_sizes.size() ? file.block_sizes[i] : 0;
 		}
 
-		std::string output;
-		append(output, header);
-		output.append(resident);
+		std::string output(format.unsigned_magic);
+		append(output, static_cast<std::uint32_t>(header.chunks.size()));
+		for (auto& chunk : header.chunks)
+		{
+			switch (chunk.type)
+			{
+			case t9_chunk::version:
+				write_t9_chunk(chunk.data, header.version);
+				break;
+			case t9_chunk::platform_data:
+				write_t9_chunk(chunk.data, header.platform);
+				break;
+			case t9_chunk::size_data:
+				write_t9_chunk(chunk.data, header.size);
+				break;
+			case t9_chunk::block_sizes:
+				write_t9_chunk(chunk.data, header.block_sizes);
+				break;
+			case t9_chunk::fastfile_info:
+				write_t9_chunk(chunk.data, header.info);
+				break;
+			}
+
+			append(output, chunk.type);
+			append(output, static_cast<std::uint32_t>(chunk.data.size()));
+			output.append(chunk.data);
+		}
+
+		for (std::size_t offset = 0; offset < payload.size(); offset += t9_block_size)
+		{
+			const auto block = payload.substr(offset, t9_block_size);
+			const auto compressed = oodle::compress(block);
+
+			t9_stream_header stream{};
+			stream.compressed_size = static_cast<std::uint32_t>(compressed.size());
+			stream.decompressed_size = static_cast<std::uint32_t>(block.size());
+			stream.aligned_size = (stream.compressed_size + 3) & ~3u;
+			stream.offset = static_cast<std::uint32_t>(output.size());
+			append(output, stream);
+			output.append(compressed);
+			output.append(stream.aligned_size - stream.compressed_size, '\0');
+		}
+
+		append(output, t9_stream_header{});
+		output.resize((output.size() + 0x3F) & ~std::size_t(0x3F));
 
 		std::filesystem::create_directories(path.parent_path());
 		if (!utils::io::write_file(path.string(), output))

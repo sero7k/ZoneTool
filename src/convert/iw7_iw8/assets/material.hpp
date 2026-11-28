@@ -16,13 +16,14 @@ namespace zonetool::iw7::converter::iw8::material
 
 	void dump(Material* asset);
 	void dump_effect(Material* asset);
-	void dump_sprite(Material* asset);
+	void dump_sprite(Material* asset, bool lit);
 	std::string dump_decal(Material* asset);
 	void dump_2d(Material* asset);
 	std::string dump_lit(Material* asset, techset::generated_techset techset);
 	std::string dump_glass_piece(Material* asset, bool shattered);
 	std::string dump_sky(Material* asset, const GfxImage* sky_image, const std::array<float, 3>& rotation_angles);
 	zonetool::iw8::GfxSModelSurfCullType get_smodel_cull_type(Material* asset);
+	bool is_visible(Material* asset);
 	zonetool::iw8::GfxSModelSurfEmitType get_smodel_emit_type(Material* asset);
 	unsigned int get_world_layer_count(Material* asset);
 	bool has_world_layer_normal_transform(Material* asset, unsigned int layer);

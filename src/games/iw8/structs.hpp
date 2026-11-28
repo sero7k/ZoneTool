@@ -1269,6 +1269,14 @@ namespace zonetool::iw8
 		char* residentData;
 	};
 
+	enum GfxDecalAtlasIndex : std::uint8_t
+	{
+		DECAL_ATLAS_NONE = 0,
+		DECAL_ATLAS_BC7_SRGB = 1,
+		DECAL_ATLAS_BC7 = 2,
+		DECAL_ATLAS_BC4 = 3,
+	};
+
 	struct GfxImage
 	{
 		const char* name;
@@ -1286,20 +1294,29 @@ namespace zonetool::iw8
 		TextureSemantic semantic;
 		GfxImageCategory category;
 		unsigned char levelCount;
+		unsigned char unknown;
 		unsigned char streamedPartCount;
-		unsigned char decalAtlasIndex;
-		char freqDomainMetricBias;
+		GfxDecalAtlasIndex decalAtlasIndex;
 		GfxImageStreamData streams[4];
 		GfxImageFallback* fallback;
 		GfxImagePixels pixels;
 	}; assert_sizeof(GfxImage, 0xE8);
 	assert_offsetof(GfxImage, atlasInfo, 0x2C);
+	assert_offsetof(GfxImage, decalAtlasIndex, 0x33);
 	assert_offsetof(GfxImage, fallback, 0xD8);
 
 	enum ComPrimaryLightSpawnFlags : unsigned char
 	{
 		PRIMARY_LIGHT_SPAWN_NO_SHADOW = 0x8,
 		PRIMARY_LIGHT_SPAWN_STATIC_SHADOW = 0x20,
+	};
+
+	enum GfxLightType : unsigned char
+	{
+		GFX_LIGHT_TYPE_NONE = 0x0,
+		GFX_LIGHT_TYPE_DIR = 0x1,
+		GFX_LIGHT_TYPE_SPOT = 0x2,
+		GFX_LIGHT_TYPE_OMNI = 0x3,
 	};
 
 	struct ComPrimaryLight
@@ -1371,6 +1388,13 @@ namespace zonetool::iw8
 		unsigned int treeSize;
 		unsigned int alwaysListLength;
 	}; assert_sizeof(SpatialPartition_Tree, 0x18);
+
+	struct SpatialPartition_TreeNodeHeader
+	{
+		unsigned int isLeaf : 1;
+		unsigned int count : 7;
+		unsigned int unused : 24;
+	}; assert_sizeof(SpatialPartition_TreeNodeHeader, 0x4);
 
 	struct G_GlassPiece
 	{
@@ -1648,6 +1672,100 @@ namespace zonetool::iw8
 		nav_raw_custom_volume_s* rawCustomVolumes;
 		nav_misc_s miscData;
 	}; assert_sizeof(NavMeshData, 0xA8);
+
+	enum bfx_resource_section_type : std::uint32_t
+	{
+		BFX_SECTION_GRAPH_2D = 0x10000,
+		BFX_SECTION_GRAPH_VOLUME = 0x20000,
+	};
+
+	enum bfx_kd_tree_node_flag : std::uint32_t
+	{
+		BFX_KD_TREE_LEAF = 0x80000000,
+	};
+
+	struct bfx_resource_header
+	{
+		std::uint32_t endian;
+		std::uint32_t version;
+		std::uint32_t body_size;
+		std::uint32_t checksum;
+		std::uint32_t used;
+		std::uint32_t flags;
+	}; assert_sizeof(bfx_resource_header, 0x18);
+
+	struct bfx_section_header
+	{
+		std::uint32_t type;
+		std::uint32_t size;
+		std::uint32_t count;
+	}; assert_sizeof(bfx_section_header, 0xC);
+
+	struct bfx_graph_header
+	{
+		std::uint32_t endian;
+		std::uint32_t version;
+		std::uint32_t layer_count;
+	}; assert_sizeof(bfx_graph_header, 0xC);
+
+	struct bfx_box
+	{
+		float mins[3];
+		float maxs[3];
+	}; assert_sizeof(bfx_box, 0x18);
+
+	struct bfx_layer_header
+	{
+		std::uint32_t version;
+		std::uint32_t index;
+		std::uint32_t area_bytes;
+		std::uint32_t kd_tree_bytes;
+		std::uint32_t record_bytes;
+		std::uint32_t unknown_14;
+		std::uint32_t link_stride;
+		std::uint32_t link_count;
+		std::uint32_t layer_bytes;
+		std::uint32_t unknown_24;
+		float agent_params[5];
+		bfx_box bounds;
+		std::uint32_t unknown_54;
+		char unknown_58[0xFC];
+	}; assert_sizeof(bfx_layer_header, 0x154);
+
+	struct bfx_area
+	{
+		char runtime[0x20];
+		float center[3];
+		float radius;
+		std::uint32_t unknown_30;
+		std::uint32_t unknown_34;
+		std::uint32_t edge_info; // bits 0-6 edge count
+		std::uint32_t unknown_3c;
+		std::uint32_t unknown_40;
+		std::uint32_t unknown_44;
+	}; assert_sizeof(bfx_area, 0x48);
+
+	struct bfx_area_edge
+	{
+		std::uint64_t neighbor; // area offset (0 = none)
+		float vertex[3];
+		std::uint32_t flags; // bits 18-31 index (0x3FFF = none)
+		std::uint32_t portal;
+		std::uint32_t unknown_1c;
+	}; assert_sizeof(bfx_area_edge, 0x20);
+
+	struct bfx_kd_tree_header
+	{
+		bfx_box bounds;
+		std::uint32_t node_bytes;
+	}; assert_sizeof(bfx_kd_tree_header, 0x1C);
+
+	struct bfx_kd_tree_split
+	{
+		std::uint32_t info; // bits 28-29 axis, bits 0-27 right child offset
+		float left_max;
+		float right_min;
+	}; assert_sizeof(bfx_kd_tree_split, 0xC);
 
 	namespace bfx
 	{
@@ -3991,6 +4109,58 @@ namespace zonetool::iw8
 		unsigned char elements[15];
 	}; assert_sizeof(MaterialInputLayout, 0x10);
 
+	enum MaterialConstantLayout : std::uint8_t
+	{
+		MTL_CONSTANT_LAYOUT_NONE = 0x0,
+		MTL_CONSTANT_LAYOUT_SMODEL = 0x1,
+		MTL_CONSTANT_LAYOUT_SMODEL_LIT_PROBE = 0x2,
+		MTL_CONSTANT_LAYOUT_SMODEL_LIT_LMAP = 0x3,
+		MTL_CONSTANT_LAYOUT_SMODEL_SUBDIV = 0x4,
+		MTL_CONSTANT_LAYOUT_SMODEL_SUBDIV_LIT_PROBE = 0x5,
+		MTL_CONSTANT_LAYOUT_SMODEL_SUBDIV_LIT_LMAP = 0x6,
+		MTL_CONSTANT_LAYOUT_SMODEL_SUBDIV_PATCH = 0x7,
+		MTL_CONSTANT_LAYOUT_SMODEL_SUBDIV_PATCH_LIT_PROBE = 0x8,
+		MTL_CONSTANT_LAYOUT_SMODEL_SUBDIV_PATCH_LIT_LMAP = 0x9,
+		MTL_CONSTANT_LAYOUT_XMODEL = 0xA,
+		MTL_CONSTANT_LAYOUT_XMODEL_VEL = 0xB,
+		MTL_CONSTANT_LAYOUT_XMODEL_VEL_SKIN = 0xC,
+		MTL_CONSTANT_LAYOUT_XMODEL_LIT_PROBE = 0xD,
+		MTL_CONSTANT_LAYOUT_XMODEL_LIT_LMAP = 0xE,
+		MTL_CONSTANT_LAYOUT_XMODEL_LIT_PROBE_OBJ = 0xF,
+		MTL_CONSTANT_LAYOUT_XMODEL_LIT_LMAP_OBJ = 0x10,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV = 0x11,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_VEL = 0x12,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_VEL_SKIN = 0x13,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_LIT_PROBE = 0x14,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_LIT_LMAP = 0x15,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_LIT_PROBE_OBJ = 0x16,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_LIT_LMAP_OBJ = 0x17,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_PATCH = 0x18,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_PATCH_VEL = 0x19,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_PATCH_VEL_SKIN = 0x1A,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_PATCH_LIT_PROBE = 0x1B,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_PATCH_LIT_LMAP = 0x1C,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_PATCH_LIT_PROBE_OBJ = 0x1D,
+		MTL_CONSTANT_LAYOUT_XMODEL_SUBDIV_PATCH_LIT_LMAP_OBJ = 0x1E,
+		MTL_CONSTANT_LAYOUT_GLASS = 0x1F,
+		MTL_CONSTANT_LAYOUT_WORLD = 0x20,
+		MTL_CONSTANT_LAYOUT_WORLD_AUX = 0x21,
+		MTL_CONSTANT_LAYOUT_WORLD_AUX_QUERY = 0x22,
+		MTL_CONSTANT_LAYOUT_WORLD_LIT_LMAP = 0x23,
+		MTL_CONSTANT_LAYOUT_WORLD_TESS = 0x24,
+		MTL_CONSTANT_LAYOUT_WORLD_TESS_QUERY = 0x25,
+		MTL_CONSTANT_LAYOUT_WORLD_TESS_LIT_LMAP = 0x26,
+		MTL_CONSTANT_LAYOUT_BMODEL = 0x27,
+		MTL_CONSTANT_LAYOUT_BMODEL_AUX = 0x28,
+		MTL_CONSTANT_LAYOUT_BMODEL_AUX_QUERY = 0x29,
+		MTL_CONSTANT_LAYOUT_BMODEL_VEL = 0x2A,
+		MTL_CONSTANT_LAYOUT_BMODEL_LIT_LMAP = 0x2B,
+		MTL_CONSTANT_LAYOUT_BMODEL_TESS = 0x2C,
+		MTL_CONSTANT_LAYOUT_BMODEL_TESS_QUERY = 0x2D,
+		MTL_CONSTANT_LAYOUT_BMODEL_TESS_VEL = 0x2E,
+		MTL_CONSTANT_LAYOUT_BMODEL_TESS_LIT_LMAP = 0x2F,
+	};
+
 	struct MaterialTechnique
 	{
 		const char* name;
@@ -4076,6 +4246,8 @@ namespace zonetool::iw8
 
 	enum MaterialConstantIndex : std::uint8_t
 	{
+		MATERIAL_CONSTANT_LAYER_FLAGS = 0x0,
+		MATERIAL_CONSTANT_LAYER_TINT = 0x9,
 		MATERIAL_CONSTANT_SPRITE_BLEND_PARMS = 0x9,
 		MATERIAL_CONSTANT_TRANSMISSION_TINT = 18,
 		MATERIAL_CONSTANT_SPRITE_BLEND_TINT = 0x12,
@@ -4093,11 +4265,22 @@ namespace zonetool::iw8
 		MATERIAL_CONSTANT_2D_COLOR_TINT = 126,
 		MATERIAL_CONSTANT_OCEAN_SCROLL_NORMAL_0 = 0xE0, // TODO: id not proven
 		MATERIAL_CONSTANT_OCEAN_SCROLL_NORMAL_1 = 0xE1, // TODO: id not proven
+		MATERIAL_CONSTANT_FALLOFF_PARMS = 0xE2, // TODO: id not proven
+		MATERIAL_CONSTANT_FALLOFF_BEGIN_COLOR = 0xE3, // TODO: id not proven
+		MATERIAL_CONSTANT_FALLOFF_END_COLOR = 0xE4, // TODO: id not proven
+		MATERIAL_CONSTANT_FEATHER_PARMS = 0xE5, // TODO: id not proven
+		MATERIAL_CONSTANT_EYE_OFFSET_PARMS = 0xE6, // TODO: id not proven
+	};
+
+	enum MaterialTechniqueSetFeature : std::uint64_t // first hex token after the alpha token of the name
+	{
+		TECHSET_FEATURE_WIND = 0x10,
 	};
 
 	enum CameraRegion : std::uint8_t
 	{
 		CAMERA_REGION_LIT_OPAQUE = 0,
+		CAMERA_REGION_LIT_OPAQUE_SSS = 1, // TODO: name not proven
 		CAMERA_REGION_LIT_DECAL = 2,
 		CAMERA_REGION_LIT_TRANS = 3,
 		CAMERA_REGION_EMISSIVE = 4,
@@ -4105,7 +4288,12 @@ namespace zonetool::iw8
 
 	enum SurfaceFlags : std::uint32_t
 	{
+		SURFACE_FLAG_SKY = 0x4,
+		SURFACE_FLAG_LADDER = 0x8,
+		SURFACE_FLAG_NOIMPACT = 0x10,
 		SURFACE_FLAG_NODRAW = 0x80,
+		SURFACE_FLAG_NOPENETRATE = 0x100,
+		SURFACE_FLAG_STAIRS = 0x200,
 	};
 
 	enum MaterialLayerFlags : std::uint32_t
@@ -6756,6 +6944,14 @@ namespace zonetool::iw8
 		scr_string_t scrScript_id;
 	}; assert_sizeof(ScriptableStateScriptedDef, 0x18);
 
+	enum ScriptableHintHoldDuration : std::uint32_t
+	{
+		SCRIPTABLE_HINT_HOLD_SHORT = 0x0,
+		SCRIPTABLE_HINT_HOLD_MEDIUM = 0x1,
+		SCRIPTABLE_HINT_HOLD_LONG = 0x2,
+		SCRIPTABLE_HINT_HOLD_NONE = 0x3,
+	};
+
 	struct ScriptableStateUsableDef
 	{
 		ScriptableStateBaseDef* base;
@@ -6831,6 +7027,11 @@ namespace zonetool::iw8
 	assert_offsetof(ScriptablePartDef, states, 0x30);
 
 	struct XAnim_s;
+
+	enum ScriptableDefFlags : std::int32_t
+	{
+		SCRIPTABLE_DEF_FLAG_NO_ENTITY = 0x2000,
+	};
 
 	struct ScriptableDef
 	{
@@ -10419,96 +10620,24 @@ namespace zonetool::iw8
 		float closeDistance;
 	}; assert_sizeof(UmbraGate, 0x20);
 
+	enum UmbraUserIdType : unsigned int
+	{
+		UMBRA_USER_ID_SURFACE = 0x0,
+		UMBRA_USER_ID_SMODEL_COLLECTION = 0x10000000,
+		UMBRA_USER_ID_UNUSED = 0x20000000,
+		UMBRA_USER_ID_VOLUMETRIC = 0x30000000,
+		UMBRA_USER_ID_PRIMARY_LIGHT = 0x40000000,
+		UMBRA_USER_ID_REFLECTION_PROBE = 0x50000000,
+		UMBRA_USER_ID_DECAL_VOLUME = 0x60000000,
+		UMBRA_USER_ID_TYPE_MASK = 0x70000000,
+		UMBRA_USER_ID_INDEX_MASK = 0xFFFFFF,
+	};
+
 	enum StaticModelFlags : std::uint8_t
 	{
 		STATIC_MODEL_FLAG_LIGHTPROBE_LIGHTING = 0x1,
 		STATIC_MODEL_FLAG_REACTIVEMOTION = 0x8,
 	};
-
-	struct UmbraTomeHeader
-	{
-		unsigned int version;
-		unsigned int checksum;
-		unsigned int size;
-		float unitsPerMeter;
-		unsigned int unk0x10;
-		float boundsMin[3];
-		float boundsMax[3];
-		unsigned int treeDepth;
-		unsigned int topTree;
-		unsigned int topMap;
-		unsigned int unk0x38[2];
-		unsigned int objectCount;
-		unsigned int objectBounds;
-		unsigned int objectDistances;
-		unsigned int unk0x4C;
-		unsigned int userIDs;
-		unsigned int indexWidth;
-		unsigned int objectLists;
-		unsigned int objectCount2;
-		unsigned int unk0x60[10];
-		unsigned int cellStarts;
-		unsigned int cellCount;
-		unsigned int tileCount;
-		unsigned int unk0x94[2];
-		unsigned int tileLodLevels;
-		unsigned int tileOffsets;
-		unsigned int unk0xA4[42];
-		unsigned int tilePortalExpands;
-		float rootBoundsMin[3];
-		float rootBoundsMax[3];
-		float tileScale;
-		unsigned int unk0x16C;
-	}; assert_sizeof(UmbraTomeHeader, 0x170);
-	assert_offsetof(UmbraTomeHeader, unitsPerMeter, 0x0C);
-	assert_offsetof(UmbraTomeHeader, boundsMin, 0x14);
-	assert_offsetof(UmbraTomeHeader, treeDepth, 0x2C);
-	assert_offsetof(UmbraTomeHeader, objectCount, 0x40);
-	assert_offsetof(UmbraTomeHeader, userIDs, 0x50);
-	assert_offsetof(UmbraTomeHeader, objectLists, 0x58);
-	assert_offsetof(UmbraTomeHeader, cellStarts, 0x88);
-	assert_offsetof(UmbraTomeHeader, tileLodLevels, 0x9C);
-	assert_offsetof(UmbraTomeHeader, tileOffsets, 0xA0);
-	assert_offsetof(UmbraTomeHeader, tilePortalExpands, 0x14C);
-	assert_offsetof(UmbraTomeHeader, rootBoundsMin, 0x150);
-	assert_offsetof(UmbraTomeHeader, tileScale, 0x168);
-
-	struct UmbraTomeTile
-	{
-		float boundsMin[3];
-		float boundsMax[3];
-		unsigned int depth;
-		unsigned int tree;
-		unsigned int map;
-		unsigned int unk0x24[2];
-		unsigned int sizeAndFlags;
-		float unk0x30;
-		unsigned int unk0x34;
-		unsigned int cell;
-		unsigned int unk0x3C;
-		unsigned int cellIndices;
-		float scale;
-		float inverseScale;
-		unsigned int unk0x4C[5];
-	}; assert_sizeof(UmbraTomeTile, 0x60);
-	assert_offsetof(UmbraTomeTile, depth, 0x18);
-	assert_offsetof(UmbraTomeTile, sizeAndFlags, 0x2C);
-	assert_offsetof(UmbraTomeTile, cell, 0x38);
-	assert_offsetof(UmbraTomeTile, cellIndices, 0x40);
-	assert_offsetof(UmbraTomeTile, scale, 0x44);
-
-	struct UmbraTomeCell
-	{
-		unsigned int unk0x00[2];
-		unsigned int unk0x08;
-		unsigned int objectCount;
-		unsigned int unk0x10;
-		unsigned int unk0x14;
-		unsigned int unk0x18;
-		unsigned int unk0x1C;
-		unsigned int unk0x20;
-	}; assert_sizeof(UmbraTomeCell, 0x24);
-	assert_offsetof(UmbraTomeCell, objectCount, 0x0C);
 
 	struct StreamMtlImgInfo
 	{
@@ -10703,6 +10832,17 @@ namespace zonetool::iw8
 		unsigned int currentPopulation;
 	}; assert_sizeof(SpatialPartition_TransientPopulation, 0x38);
 
+	enum DynEntityType : std::uint8_t
+	{
+		DYNENT_TYPE_INVALID = 0x0,
+		DYNENT_TYPE_CLUTTER = 0x1,
+		DYNENT_TYPE_CLUTTER_NOSHADOW = 0x2,
+		DYNENT_TYPE_SCRIPTABLEINST = 0x3,
+		DYNENT_TYPE_SCRIPTABLEPHYSICS = 0x4,
+		DYNENT_TYPE_LINKED = 0x5,
+		DYNENT_TYPE_LINKED_NOSHADOW = 0x6,
+	};
+
 	struct DynEntityDef
 	{
 		const XModel* baseModel;
@@ -10711,7 +10851,7 @@ namespace zonetool::iw8
 		SpatialPartition_Population_Node spatialNode;
 		char clientActiveMask;
 		unsigned char basis;
-		unsigned char type;
+		DynEntityType type;
 		unsigned char priority;
 		unsigned int spatialPartitionIndex;
 		unsigned short clientId[2];
@@ -10922,6 +11062,11 @@ namespace zonetool::iw8
 		unsigned short activeTransientZoneCount;
 	}; assert_sizeof(FxWorld, 0x3CD0);
 	assert_offsetof(FxWorld, transientZones, 0xC8);
+
+	enum EdgeQueryType : std::uint8_t
+	{
+		EDGE_QUERY_LADDER = 2,
+	};
 
 	struct FlaggedEdgeMetadata
 	{
@@ -11757,6 +11902,21 @@ namespace zonetool::iw8
 		SURFACE_TYPE_COUNT = 64
 	};
 
+	struct HavokPhysicsShapeTagData
+	{
+		unsigned int collisionFilterInfo;
+		int materialCRC;
+		unsigned short materialId;
+		unsigned long long userData;
+	}; assert_sizeof(HavokPhysicsShapeTagData, 24);
+
+	struct hkcdPrimitiveDataRun
+	{
+		unsigned short value;
+		unsigned char index;
+		unsigned char count;
+	}; assert_sizeof(hkcdPrimitiveDataRun, 4);
+
 	struct clipMap_t
 	{
 		const char* name;
@@ -11867,6 +12027,35 @@ namespace zonetool::iw8
 		float minReticleScale;
 		float maxReticleScale;
 	}; assert_sizeof(ReticleDef, 0x48);
+
+	struct hkcdSimdTreeNode
+	{
+		vec4_t lx;
+		vec4_t hx;
+		vec4_t ly;
+		vec4_t hy;
+		vec4_t lz;
+		vec4_t hz;
+		unsigned int data[4];
+		bool isLeaf;
+		bool isActive;
+		char pad[14];
+	}; assert_sizeof(hkcdSimdTreeNode, 0x80);
+
+	struct hknpShapeInstance
+	{
+		vec4_t transform[4];
+		vec4_t scale;
+		std::uint64_t shape;
+		unsigned short shapeTag;
+		unsigned short destructionTag;
+		unsigned char isEmpty;
+		unsigned int nextEmptyElement;
+		unsigned int instanceId;
+		std::uint64_t parentShape;
+	}; assert_sizeof(hknpShapeInstance, 0x70);
+	assert_offsetof(hknpShapeInstance, shape, 0x50);
+	assert_offsetof(hknpShapeInstance, nextEmptyElement, 0x60);
 
 	struct PhysicsLibrary
 	{

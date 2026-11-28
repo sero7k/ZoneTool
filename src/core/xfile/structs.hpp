@@ -153,6 +153,7 @@ namespace zonetool
 	static_assert(sizeof(s2_file_header) == 0x24);
 
 	constexpr std::size_t iw8_block_count = 11;
+	constexpr std::size_t s4_block_count = 10;
 
 #pragma pack(push, 1)
 	struct iw8_file_header
@@ -172,7 +173,26 @@ namespace zonetool
 		std::uint64_t block_sizes[iw8_block_count];
 	};
 
-	struct iw8_patch_header
+	struct s4_file_header
+	{
+		char magic[8];
+		std::uint32_t header_version;
+		std::uint32_t xfile_version;
+		std::uint8_t dash_compress_build;
+		std::uint8_t dash_encrypt_build;
+		std::uint8_t transient_file_type;
+		std::uint8_t pad;
+		std::uint32_t resident_part_size;
+		std::uint32_t resident_hash;
+		std::uint32_t always_loaded_part_size;
+		std::uint64_t size;
+		std::uint64_t preload_walk_size;
+		std::uint64_t block_sizes[s4_block_count];
+		std::uint64_t unknown[3];
+	};
+
+	template <typename Header>
+	struct patch_header
 	{
 		char magic[8];
 		std::uint32_t version;
@@ -182,13 +202,111 @@ namespace zonetool
 		std::uint64_t diff_window_size;
 		std::uint64_t resident_diff_compressed_size;
 		std::uint64_t resident_diff_size;
-		iw8_file_header base;
-		iw8_file_header target;
+		Header base;
+		Header target;
 	};
 #pragma pack(pop)
 
+	using iw8_patch_header = patch_header<iw8_file_header>;
+	using s4_patch_header = patch_header<s4_file_header>;
+
 	static_assert(sizeof(iw8_file_header) == 0x88);
 	static_assert(sizeof(iw8_patch_header) == 0x148);
+	static_assert(sizeof(s4_file_header) == 0x98);
+	static_assert(sizeof(s4_patch_header) == 0x168);
+
+	enum class t9_chunk : std::uint32_t
+	{
+		version = 0x39CB44F1,
+		platform_data = 0x2C2381CF,
+		build_data = 0x37F9D612,
+		link_result = 0x8578C004,
+		size_data = 0x0F992DFE,
+		block_sizes = 0x66C65056,
+		fastfile_info = 0xC7708CDA,
+	};
+
+	enum class t9_compression : std::uint8_t
+	{
+		none = 0,
+		zlib = 1,
+		zlib_hc = 2,
+		lz4 = 3,
+		lz4_hc = 4,
+		bdelta_uncompressed = 5,
+		bdelta_zlib = 6,
+		bdelta_lzma = 7,
+		oodle_kraken = 8,
+		oodle_mermaid = 9,
+		oodle_selkie = 10,
+		oodle_lzna = 11,
+	};
+
+	constexpr std::size_t t9_block_count = 13;
+	constexpr std::size_t t9_block_size = 0xFFFA0;
+
+#pragma pack(push, 1)
+	struct t9_platform_data
+	{
+		std::uint8_t server;
+		t9_compression compression;
+		std::uint8_t platform;
+		std::uint8_t encrypted;
+	};
+
+	struct t9_size_data
+	{
+		std::uint64_t size;
+		std::uint64_t external_size;
+		std::uint64_t mem_mapped_offset;
+	};
+
+	struct t9_fastfile_info
+	{
+		char name[0x40];
+		std::uint8_t signature[0x100];
+		std::uint8_t aes_iv[0x10];
+	};
+
+	struct t9_stream_header
+	{
+		std::uint32_t compressed_size;
+		std::uint32_t decompressed_size;
+		std::uint32_t aligned_size;
+		std::uint32_t offset;
+	};
+#pragma pack(pop)
+
+	struct t9_patch_header
+	{
+		std::uint32_t size;
+		float version;
+		std::uint32_t flags;
+		std::uint64_t max_dest_window_size;
+		std::uint64_t max_source_window_size;
+		std::uint64_t max_diff_window_size;
+	};
+
+	struct t9_header_chunk
+	{
+		t9_chunk type;
+		std::string data;
+	};
+
+	struct t9_file_header
+	{
+		std::uint32_t version;
+		t9_platform_data platform;
+		t9_size_data size;
+		std::uint64_t block_sizes[t9_block_count];
+		t9_fastfile_info info;
+		std::vector<t9_header_chunk> chunks;
+	};
+
+	static_assert(sizeof(t9_size_data) == 0x18);
+	static_assert(sizeof(t9_fastfile_info) == 0x150);
+	static_assert(sizeof(t9_stream_header) == 0x10);
+	static_assert(sizeof(t9_patch_header) == 0x28);
 
 	enum XFileBlock
 	{

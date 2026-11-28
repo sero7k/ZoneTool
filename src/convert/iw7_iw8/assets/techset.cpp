@@ -26,7 +26,7 @@ namespace zonetool::iw7::converter::iw8::techset
 				{target::MTL_ARG_CODE_CONST, target::MTL_SHADER_STAGE_VS, 5, target::CONST_SRC_CODE_CAMERA_OFFSET},
 			};
 
-			if (techset == GENERATED_TECHSET_WORLD)
+			if (uses_world_vertices(techset))
 			{
 				args.push_back({target::MTL_ARG_CODE_BUFFER, target::MTL_SHADER_STAGE_VS, 13, target::BUFFER_SRC_CODE_WORLD_SURFACE_DATA});
 			}
@@ -49,12 +49,12 @@ namespace zonetool::iw7::converter::iw8::techset
 			auto args = transform_args(techset);
 			add_arg(args, {target::MTL_ARG_CODE_CONST, target::MTL_SHADER_STAGE_PS, 6, target::CONST_SRC_CODE_RENDER_TARGET_SIZE});
 			add_arg(args, {target::MTL_ARG_CODE_CONST, target::MTL_SHADER_STAGE_PS, 7, target::CONST_SRC_CODE_RESOLUTION_SCALE});
-			if (techset == GENERATED_TECHSET_WORLD)
+			if (uses_world_vertices(techset))
 			{
 				add_arg(args, {target::MTL_ARG_CODE_BUFFER, target::MTL_SHADER_STAGE_PS, 0, target::BUFFER_SRC_CODE_LIGHTMAP_PACKING});
 			}
 
-			const unsigned short color_map = techset == GENERATED_TECHSET_WORLD ? 1 : 0;
+			const unsigned short color_map = uses_world_vertices(techset) ? 1 : 0;
 			add_arg(args, {target::MTL_ARG_CODE_BUFFER, target::MTL_SHADER_STAGE_PS, 5, target::BUFFER_SRC_CODE_SCREEN_TILES});
 			add_arg(args, {target::MTL_ARG_MATERIAL_TEXTURE, target::MTL_SHADER_STAGE_PS, color_map, 0});
 			add_arg(args, {target::MTL_ARG_CODE_CBUFFER, target::MTL_SHADER_STAGE_PS, 7, 0});
@@ -64,7 +64,7 @@ namespace zonetool::iw7::converter::iw8::techset
 		std::vector<target::MaterialShaderArgument> unlit_args(const generated_techset techset)
 		{
 			auto args = transform_args(techset);
-			const unsigned short color_map = techset == GENERATED_TECHSET_WORLD ? 1 : 0;
+			const unsigned short color_map = uses_world_vertices(techset) ? 1 : 0;
 			add_arg(args, {target::MTL_ARG_MATERIAL_TEXTURE, target::MTL_SHADER_STAGE_PS, color_map, 0});
 			add_arg(args, {target::MTL_ARG_CODE_CBUFFER, target::MTL_SHADER_STAGE_PS, 7, 0});
 			add_arg(args, {target::MTL_ARG_MATERIAL_CONST, target::MTL_SHADER_STAGE_PS, 0, target::MATERIAL_CONSTANT_EFFECT_COLOR_TINT});
@@ -101,12 +101,40 @@ namespace zonetool::iw7::converter::iw8::techset
 				add_arg(args, {target::MTL_ARG_MATERIAL_CONST, target::MTL_SHADER_STAGE_PS, 3, target::MATERIAL_CONSTANT_OCEAN_SCROLL_NORMAL_1});
 			}
 
+			if (variant.effect)
+			{
+				add_arg(args, {target::MTL_ARG_MATERIAL_CONST, target::MTL_SHADER_STAGE_VS, 4, target::MATERIAL_CONSTANT_FALLOFF_PARMS});
+				add_arg(args, {target::MTL_ARG_MATERIAL_CONST, target::MTL_SHADER_STAGE_VS, 5, target::MATERIAL_CONSTANT_FALLOFF_BEGIN_COLOR});
+				add_arg(args, {target::MTL_ARG_MATERIAL_CONST, target::MTL_SHADER_STAGE_VS, 6, target::MATERIAL_CONSTANT_FALLOFF_END_COLOR});
+				add_arg(args, {target::MTL_ARG_MATERIAL_CONST, target::MTL_SHADER_STAGE_VS, 8, target::MATERIAL_CONSTANT_EYE_OFFSET_PARMS});
+			}
+
+			if (variant.near_fade)
+			{
+				add_arg(args, {target::MTL_ARG_MATERIAL_CONST, target::MTL_SHADER_STAGE_VS, 7, target::MATERIAL_CONSTANT_FEATHER_PARMS});
+			}
+
 			return args;
 		}
 
 		const char* get_lit_vertex_entry(const generated_variant& variant)
 		{
-			if (variant.techset == GENERATED_TECHSET_WORLD)
+			if (variant.effect)
+			{
+				if (uses_world_vertices(variant.techset))
+				{
+					return variant.near_fade ? "world_effect_fade_vs" : "world_effect_vs";
+				}
+
+				return variant.near_fade ? "smodel_effect_fade_vs" : "smodel_effect_vs";
+			}
+
+			if (variant.vertex_color)
+			{
+				return variant.uv_anim ? "world_unlit_color_uv_anim_vs" : "world_unlit_color_vs";
+			}
+
+			if (uses_world_vertices(variant.techset))
 			{
 				return variant.water ? "world_water_vs" : variant.uv_anim ? "world_lit_uv_anim_vs" : "world_lit_vs";
 			}
@@ -153,8 +181,18 @@ namespace zonetool::iw7::converter::iw8::techset
 
 		const char* get_unlit_pixel_entry(const generated_variant& variant)
 		{
-			const auto world = variant.techset == GENERATED_TECHSET_WORLD;
+			const auto world = uses_world_vertices(variant.techset);
 			const auto evc = variant.exposure_compensated;
+			if (variant.effect)
+			{
+				return world ? "world_effect_add_ps" : "smodel_effect_add_ps";
+			}
+
+			if (variant.vertex_color)
+			{
+				return evc ? "world_unlit_add_color_evc_ps" : "world_unlit_add_color_ps";
+			}
+
 			switch (variant.blend)
 			{
 			case GENERATED_BLEND_ALPHA:
@@ -168,10 +206,10 @@ namespace zonetool::iw7::converter::iw8::techset
 
 		const char* get_lit_pixel_entry(const generated_variant& variant)
 		{
-			const auto world = variant.techset == GENERATED_TECHSET_WORLD;
+			const auto world = uses_world_vertices(variant.techset);
 			if (variant.blend == GENERATED_BLEND_MULTIPLY)
 			{
-				return world ? "world_multiply_ps" : "smodel_multiply_ps";
+				return variant.vertex_color ? "world_multiply_color_ps" : world ? "world_multiply_ps" : "smodel_multiply_ps";
 			}
 
 			if (!variant.lit)
@@ -216,7 +254,8 @@ namespace zonetool::iw7::converter::iw8::techset
 				return get_sky_definitions();
 			}
 
-			const auto world = variant.techset == GENERATED_TECHSET_WORLD;
+			const auto world = uses_world_vertices(variant.techset);
+			const auto brush = variant.techset == GENERATED_TECHSET_BRUSH_MODEL;
 			const auto alpha_test = variant.alpha_test && variant.blend == GENERATED_BLEND_OPAQUE;
 			const std::uint64_t cull_back = variant.two_sided ? 0 : 1;
 			const std::uint64_t cull_front = variant.two_sided ? 0 : 2;
@@ -234,9 +273,18 @@ namespace zonetool::iw7::converter::iw8::techset
 					target::TECHNIQUE_DEPTH_PREPASS, "TECHNIQUE_DEPTH_PREPASS",
 					world ? "world_prepass_vs" : "smodel_prepass_vs", alpha_test ? "prepass_alpha_ps" : "prepass_ps",
 					{{0x16, {0x06, 0x11, 0, 0}}, {0x16, {0x10, 0x11, 0, 0}}}, 2,
-					world ? 0x18100u : 0u, static_cast<unsigned char>(world ? 34 : 1),
+					world ? 0x18100u : 0u, static_cast<unsigned char>(brush ? target::MTL_CONSTANT_LAYOUT_BMODEL_AUX_QUERY : world ? 34 : 1),
 					{(alpha_test ? 0x2000E00 : 0x0E00) | cull_back, 0xFFFFFF0F00000000}, alpha_test ? alpha_transform : transform, transform_decls,
 				});
+
+				if (brush)
+				{
+					auto moving = definitions.back(); // TODO: velocity output
+					moving.type = target::TECHNIQUE_DEPTH_PREPASS_VELRGD;
+					moving.name = "TECHNIQUE_DEPTH_PREPASS_VELRGD";
+					moving.precompiled_index = target::MTL_CONSTANT_LAYOUT_BMODEL_VEL;
+					definitions.push_back(std::move(moving));
+				}
 			}
 
 			if (variant.casts_shadow && variant.blend == GENERATED_BLEND_OPAQUE)
@@ -246,7 +294,8 @@ namespace zonetool::iw7::converter::iw8::techset
 					: (world ? "world_shadow_vs" : "smodel_shadow_vs");
 				const auto shadow_ps = alpha_test ? "shadow_alpha_ps" : nullptr;
 				const auto shadow_buffer_flags = world ? (alpha_test ? 0x18100u : 0x8100u) : 0u;
-				const auto shadow_index = static_cast<unsigned char>(world ? (alpha_test ? 33 : 32) : 1);
+				const auto brush_shadow_index = alpha_test ? target::MTL_CONSTANT_LAYOUT_BMODEL_AUX : target::MTL_CONSTANT_LAYOUT_BMODEL;
+				const auto shadow_index = static_cast<unsigned char>(brush ? brush_shadow_index : world ? (alpha_test ? 33 : 32) : 1);
 
 				definitions.push_back(
 				{
@@ -270,7 +319,7 @@ namespace zonetool::iw7::converter::iw8::techset
 					target::TECHNIQUE_LIT_FORWARDPLUS_BITMASK, "TECHNIQUE_LIT_FORWARDPLUS_BITMASK",
 					get_lit_vertex_entry(variant), get_lit_pixel_entry(variant),
 					{{0x16, {0x20, 0x01, 0, 0}}}, 2,
-					world ? 0x18100u : 0u, static_cast<unsigned char>(world ? 35 : 2),
+					world ? 0x18100u : 0u, static_cast<unsigned char>(brush ? target::MTL_CONSTANT_LAYOUT_BMODEL_LIT_LMAP : world ? 35 : 2),
 					{(blend ? 0x0C10 : 0x0800) | cull_back, get_blend_bits(variant.blend)},
 					get_lit_args(variant), lit_decls,
 				});
@@ -281,7 +330,7 @@ namespace zonetool::iw7::converter::iw8::techset
 
 		std::uint64_t get_techset_flags(const generated_variant& variant)
 		{
-			const auto world = variant.techset == GENERATED_TECHSET_WORLD;
+			const auto world = uses_world_vertices(variant.techset);
 			if (variant.techset == GENERATED_TECHSET_SKY)
 			{
 				return 0x20;
@@ -327,14 +376,14 @@ namespace zonetool::iw7::converter::iw8::techset
 		}
 
 		template <typename T>
-		T* get_shader(shader_cache<T>& cache, const char* entry, const char* profile, utils::memory::allocator& allocator)
+		T* get_shader(shader_cache<T>& cache, const std::string& source, const char* entry, const char* profile, utils::memory::allocator& allocator)
 		{
 			if (const auto itr = cache.find(entry); itr != cache.end())
 			{
 				return itr->second;
 			}
 
-			const auto bytecode = utils::shader_compiler::compile(shaders::source, entry, entry, profile);
+			const auto bytecode = utils::shader_compiler::compile(source, entry, entry, profile);
 			const auto name = utils::cryptography::sha1::compute(bytecode, true).substr(0, 32);
 
 			auto* shader = allocator.allocate<T>();
@@ -364,7 +413,7 @@ namespace zonetool::iw7::converter::iw8::techset
 			return value;
 		}
 
-		target::MaterialTechnique* make_technique(const technique_definition& definition, const std::string& suffix,
+		target::MaterialTechnique* make_technique(const technique_definition& definition, const std::string& suffix, const std::string& source,
 			shader_cache<target::MaterialVertexShader>& vertex_shaders, shader_cache<target::MaterialPixelShader>& pixel_shaders,
 			target::MaterialPixelShader* empty_pixel_shader, utils::memory::allocator& allocator)
 		{
@@ -391,9 +440,9 @@ namespace zonetool::iw7::converter::iw8::techset
 			technique->inputLayout = allocator.allocate<target::MaterialInputLayout>();
 			std::memset(technique->inputLayout->elements, 0xFF, sizeof(technique->inputLayout->elements));
 
-			technique->vertexShader = get_shader(vertex_shaders, definition.vertex_entry, "vs_5_0", allocator);
+			technique->vertexShader = get_shader(vertex_shaders, source, definition.vertex_entry, "vs_5_0", allocator);
 			technique->pixelShader = definition.pixel_entry
-				? get_shader(pixel_shaders, definition.pixel_entry, "ps_5_0", allocator)
+				? get_shader(pixel_shaders, source, definition.pixel_entry, "ps_5_0", allocator)
 				: empty_pixel_shader;
 
 			const auto never_args = std::ranges::count(definition.args, target::MTL_ARG_MATERIAL_CONST, &target::MaterialShaderArgument::type);
@@ -415,6 +464,11 @@ namespace zonetool::iw7::converter::iw8::techset
 		}
 	}
 
+	bool uses_world_vertices(const generated_techset techset)
+	{
+		return techset == GENERATED_TECHSET_WORLD || techset == GENERATED_TECHSET_BRUSH_MODEL;
+	}
+
 	std::string get_techset_name(const generated_variant& variant)
 	{
 		if (variant.techset == GENERATED_TECHSET_SKY)
@@ -422,18 +476,28 @@ namespace zonetool::iw7::converter::iw8::techset
 			return "tw/iw7_sky";
 		}
 
-		const auto prefix = variant.techset == GENERATED_TECHSET_STATIC_MODEL ? "tmo" : "tw";
+		const auto prefix = variant.techset == GENERATED_TECHSET_STATIC_MODEL ? "tmo" : variant.techset == GENERATED_TECHSET_BRUSH_MODEL ? "tb" : "tw";
 		const auto two_sided = variant.two_sided ? "_2s" : "";
 		const auto no_cast = variant.visible && !variant.casts_shadow && variant.blend == GENERATED_BLEND_OPAQUE ? "_nocast" : "";
 		const auto uv_anim = variant.visible && variant.uv_anim ? "_ua" : "";
 		const auto evc = variant.visible && variant.exposure_compensated ? "_evc" : "";
 		const auto water = variant.visible && variant.water ? "_water" : "";
-		return std::format("{}/iw7_{}{}{}{}{}{}", prefix, get_techset_base_name(variant), water, evc, uv_anim, two_sided, no_cast);
+		const auto effect = variant.visible && variant.effect ? (variant.near_fade ? "_effect_fade" : "_effect") : "";
+		const auto vertex_color = variant.visible && variant.vertex_color ? "_vc" : "";
+		return std::format("{}/iw7_{}{}{}{}{}{}{}{}", prefix, get_techset_base_name(variant), water, effect, vertex_color, evc, uv_anim, two_sided, no_cast);
 	}
 
 	target::MaterialGeometryType get_material_type(const generated_techset techset)
 	{
-		return techset == GENERATED_TECHSET_STATIC_MODEL ? target::MTL_TYPE_STATIC_MODEL_SELFVIS : target::MTL_TYPE_WORLD;
+		switch (techset)
+		{
+		case GENERATED_TECHSET_STATIC_MODEL:
+			return target::MTL_TYPE_STATIC_MODEL_SELFVIS;
+		case GENERATED_TECHSET_BRUSH_MODEL:
+			return target::MTL_TYPE_BMODEL;
+		default:
+			return target::MTL_TYPE_WORLD;
+		}
 	}
 
 	void dump_techset(const generated_variant& variant)
@@ -452,6 +516,7 @@ namespace zonetool::iw7::converter::iw8::techset
 
 		const auto definitions = get_definitions(variant);
 		const auto suffix = utils::cryptography::sha1::compute(name, true).substr(0, 16);
+		const auto source = (variant.techset == GENERATED_TECHSET_BRUSH_MODEL ? "#define BRUSH_MODEL\n"s : ""s) + std::string(shaders::source);
 
 		auto* asset = allocator.allocate<target::MaterialTechniqueSet>();
 		asset->name = allocator.duplicate_string(name);
@@ -463,7 +528,7 @@ namespace zonetool::iw7::converter::iw8::techset
 		{
 			const auto type = definitions[i].type;
 			asset->techniqueMask.mask[type / 64] |= 1ull << (type % 64);
-			asset->maskedTechniques[i] = make_technique(definitions[i], suffix, vertex_shaders, pixel_shaders, empty_pixel_shader, allocator);
+			asset->maskedTechniques[i] = make_technique(definitions[i], suffix, source, vertex_shaders, pixel_shaders, empty_pixel_shader, allocator);
 		}
 
 		target::technique_set::dump(asset);

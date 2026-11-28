@@ -240,9 +240,7 @@ namespace zonetool::iw7
 	struct FxWorld;
 	struct GfxWorld;
 	struct GfxWorldTransientZone;
-	//ASSET_TYPE_IESPROFILE = 31, // unused
 	struct GfxLightDef;
-	//ASSET_TYPE_UI_MAP = 33, // unused
 	struct AnimationClass;
 	struct PlayerAnimScript;
 	struct Gesture;
@@ -253,10 +251,6 @@ namespace zonetool::iw7
 	struct FxEffectDef;
 	struct FxImpactTable;
 	struct SurfaceFxTable;
-	//ASSET_TYPE_AITYPE = 44, // unused
-	//ASSET_TYPE_MPTYPE = 45, // unused
-	//ASSET_TYPE_CHARACTER = 46, // unused
-	//ASSET_TYPE_XMODELALIAS = 47, // unused
 	struct RawFile;
 	struct ScriptFile;
 	struct StringTable;
@@ -1071,7 +1065,7 @@ namespace zonetool::iw7
 		ID3D11Buffer* tensionDataBuffer;
 		ID3D11ShaderResourceView* tensionDataView;
 		ID3D11ShaderResourceView* indexBufferView;
-		int unk; // vertexLightingIndex
+		int vertexLightingIndex;
 		int pad;
 		SHProbeSimplexDataUnion shProbeSimplexVertData;
 		ID3D11Buffer* shProbeSimplexVertBuffer;
@@ -4191,6 +4185,44 @@ namespace zonetool::iw7
 	assert_offsetof(hknpCompressedMeshShape, edgeWeldingMap, 48);
 	assert_offsetof(hknpCompressedMeshShape, data, 96);
 
+	struct hknpShapeInstance
+	{
+		hkVector4 rotation[3];
+		hkVector4 translation;
+		hkVector4 scale;
+		void* shape;
+		unsigned short shapeTag;
+		unsigned short destructionTag;
+		char padding[36];
+	}; assert_sizeof(hknpShapeInstance, 0x80);
+	assert_offsetof(hknpShapeInstance, shape, 0x50);
+
+	struct hknpDynamicCompoundShape
+	{
+		void* vtable;
+		unsigned int memSizeAndRefCount;
+		char __pad0[4];
+		hknpShapeFlags flags;
+		unsigned char numShapeKeyBits;
+		hknpShapeDispatchType dispatchType;
+		float convexRadius;
+		unsigned long long userData;
+		void* properties;
+		char __pad1[8];
+		hknpSparseCompactMap edgeWeldingMap;
+		unsigned int shapeTagCodecInfo;
+		hkArray<hknpShapeInstance> instances;
+		int firstFreeInstance;
+		char __pad2[12];
+		hkAabb aabb;
+		bool isMutable;
+		char __pad3[31];
+		void* boundingVolumeData;
+	}; assert_sizeof(hknpDynamicCompoundShape, 0xC8);
+	assert_offsetof(hknpDynamicCompoundShape, instances, 0x60);
+	assert_offsetof(hknpDynamicCompoundShape, aabb, 0x80);
+	assert_offsetof(hknpDynamicCompoundShape, boundingVolumeData, 0xC0);
+
 	struct HavokPhysicsShapeTagData
 	{
 		unsigned int collisionFilterInfo;
@@ -4212,6 +4244,166 @@ namespace zonetool::iw7
 		hkArray<unsigned int> shapeContents;
 		hkArray<int> convexCounts;
 	}; assert_sizeof(HavokPhysicsShapeList, 152);
+
+	template <typename T>
+	struct hkRelArray
+	{
+		unsigned short size;
+		unsigned short offset;
+
+		const T* data() const
+		{
+			return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + this->offset);
+		}
+	}; assert_sizeof(hkRelArray<int>, 4);
+
+	struct hkCompressedMassProperties
+	{
+		short centerOfMass[4];
+		short inertia[4];
+		short majorAxisSpace[4];
+		float mass;
+		float volume;
+	}; assert_sizeof(hkCompressedMassProperties, 32);
+
+	struct hknpShapeMassProperties
+	{
+		void* vtable;
+		unsigned int memSizeAndRefCount;
+		char __pad0[4];
+		hkCompressedMassProperties compressedMassProperties;
+	}; assert_sizeof(hknpShapeMassProperties, 48);
+
+	struct hkRefCountedPropertiesEntry
+	{
+		void* object;
+		unsigned short key;
+		unsigned short flags;
+		char __pad0[4];
+	}; assert_sizeof(hkRefCountedPropertiesEntry, 16);
+
+	struct hkRefCountedProperties
+	{
+		hkArray<hkRefCountedPropertiesEntry> entries;
+	}; assert_sizeof(hkRefCountedProperties, 16);
+
+	struct hknpConvexPolytopeShapeFace
+	{
+		unsigned short firstIndex;
+		unsigned char numIndices;
+		unsigned char minHalfAngle;
+	}; assert_sizeof(hknpConvexPolytopeShapeFace, 4);
+
+	struct hknpConvexPolytopeShapeConnectivityEdge
+	{
+		unsigned short faceIndex;
+		unsigned char edgeIndex;
+		unsigned char padding;
+	}; assert_sizeof(hknpConvexPolytopeShapeConnectivityEdge, 4);
+
+	struct hknpConvexPolytopeShapeConnectivity
+	{
+		void* vtable;
+		unsigned int memSizeAndRefCount;
+		char __pad0[4];
+		hkArray<hknpConvexPolytopeShapeConnectivityEdge> vertexEdges;
+		hkArray<hknpConvexPolytopeShapeConnectivityEdge> faceLinks;
+	}; assert_sizeof(hknpConvexPolytopeShapeConnectivity, 48);
+
+	struct hknpConvexPolytopeShape
+	{
+		void* vtable;
+		unsigned int memSizeAndRefCount;
+		char __pad0[4];
+		hknpShapeFlags flags;
+		unsigned char numShapeKeyBits;
+		hknpShapeDispatchType dispatchType;
+		float convexRadius;
+		unsigned long long userData;
+		hkRefCountedProperties* properties;
+		char __pad1[8];
+		hkRelArray<hkVector4> vertices;
+		char __pad2[12];
+		hkRelArray<hkVector4> planes;
+		hkRelArray<hknpConvexPolytopeShapeFace> faces;
+		hkRelArray<unsigned char> indices;
+		char __pad3[4];
+		hknpConvexPolytopeShapeConnectivity* connectivity;
+	}; assert_sizeof(hknpConvexPolytopeShape, 0x58);
+	assert_offsetof(hknpConvexPolytopeShape, vertices, 0x30);
+	assert_offsetof(hknpConvexPolytopeShape, planes, 0x40);
+	assert_offsetof(hknpConvexPolytopeShape, connectivity, 0x50);
+
+	struct hknpMotionCinfo
+	{
+		unsigned short motionPropertiesId;
+		bool enableDeactivation;
+		float inverseMass;
+		float maxLinearAccelerationDistancePerStep;
+		float maxRotationPerStep;
+		hkVector4 inverseInertiaLocal;
+		hkVector4 centerOfMassWorld;
+		hkVector4 orientation;
+		hkVector4 linearVelocity;
+		hkVector4 angularVelocity;
+	}; assert_sizeof(hknpMotionCinfo, 0x60);
+	assert_offsetof(hknpMotionCinfo, inverseMass, 0x4);
+
+	struct hknpBodyCinfo
+	{
+		void* shape;
+		unsigned int flags;
+		unsigned int collisionFilterInfo;
+		unsigned short materialId;
+		unsigned char qualityId;
+		char __pad0[13];
+		const char* name;
+		unsigned long long userData;
+		hkVector4 position;
+		hkVector4 orientation;
+		hkVector4 linearVelocity;
+		hkVector4 angularVelocity;
+		float mass;
+		void* massDistribution;
+		unsigned short motionPropertiesId;
+		unsigned int reservedBodyId;
+		unsigned int reservedMotionId;
+		float collisionLookAheadDistance;
+		void* localFrame;
+		char __pad1[8];
+	}; assert_sizeof(hknpBodyCinfo, 0xA0);
+	assert_offsetof(hknpBodyCinfo, name, 0x20);
+	assert_offsetof(hknpBodyCinfo, mass, 0x70);
+	assert_offsetof(hknpBodyCinfo, reservedMotionId, 0x88);
+	assert_offsetof(hknpBodyCinfo, localFrame, 0x90);
+
+	struct hknpPhysicsSystemData
+	{
+		void* vtable;
+		unsigned int memSizeAndRefCount;
+		char __pad0[4];
+		hkArray<void> materials;
+		hkArray<void> motionProperties;
+		hkArray<hknpMotionCinfo> motionCinfos;
+		hkArray<hknpBodyCinfo> bodyCinfos;
+		hkArray<void> constraintCinfos;
+		hkArray<void*> referencedObjects;
+		const char* name;
+	}; assert_sizeof(hknpPhysicsSystemData, 0x78);
+
+	struct HavokPhysicsAsset
+	{
+		bool isRagdoll;
+		hknpPhysicsSystemData* physicsSystemData;
+		hkArray<int> bodyQualityNameCRCLookup;
+		hkArray<int> materialNameCRCLookup;
+		hkArray<int> motionPropertiesNameCRCLookup;
+		hkArray<const char*> bodySFXAssetNames;
+		hkArray<const char*> bodyVFXAssetNames;
+		hkArray<int> bodyServerUsage;
+		hkArray<int> constraintServerUsage;
+		hkArray<int> bodyDrivers;
+	}; assert_sizeof(HavokPhysicsAsset, 0x90);
 
 	struct clipMap_t // __declspec(align(128))
 	{
@@ -4692,6 +4884,99 @@ namespace zonetool::iw7
 		nav_raw_custom_volume_s* rawCustomVolumes;
 	}; assert_sizeof(NavMeshData, 0x90);
 	assert_offsetof(NavMeshData, rawCustomVolumes, 136);
+
+	enum bfx_resource_section_type : std::uint32_t
+	{
+		BFX_SECTION_GRAPH_2D = 0x10000,
+		BFX_SECTION_GRAPH_VOLUME = 0x20000,
+	};
+
+	enum bfx_kd_tree_node_flag : std::uint32_t
+	{
+		BFX_KD_TREE_LEAF = 0x80000000,
+	};
+
+	struct bfx_resource_header
+	{
+		std::uint32_t endian;
+		std::uint32_t version;
+		std::uint32_t body_size;
+		std::uint32_t checksum;
+		std::uint32_t used;
+		std::uint32_t flags;
+	}; assert_sizeof(bfx_resource_header, 0x18);
+
+	struct bfx_section_header
+	{
+		std::uint32_t type;
+		std::uint32_t size;
+		std::uint32_t count;
+	}; assert_sizeof(bfx_section_header, 0xC);
+
+	struct bfx_graph_header
+	{
+		std::uint32_t endian;
+		std::uint32_t version;
+		std::uint32_t layer_count;
+	}; assert_sizeof(bfx_graph_header, 0xC);
+
+	struct bfx_box
+	{
+		float mins[3];
+		float maxs[3];
+	}; assert_sizeof(bfx_box, 0x18);
+
+	struct bfx_layer_header
+	{
+		std::uint32_t version;
+		std::uint32_t index;
+		std::uint32_t area_bytes;
+		std::uint32_t kd_tree_bytes;
+		std::uint32_t record_bytes;
+		std::uint32_t unknown_14;
+		std::uint32_t link_stride;
+		std::uint32_t link_count;
+		std::uint32_t layer_bytes;
+		float agent_params[5];
+		bfx_box bounds;
+		std::uint32_t unknown_50;
+		char unknown_54[0xFC];
+	}; assert_sizeof(bfx_layer_header, 0x150);
+
+	struct bfx_area
+	{
+		char runtime[0x20];
+		float center[3];
+		float radius;
+		std::uint32_t unknown_30;
+		std::uint32_t unknown_34;
+		std::uint32_t edge_info; // low 7 bits: edge count
+		std::uint32_t unknown_3c;
+		std::uint32_t unknown_40;
+		std::uint32_t unknown_44;
+	}; assert_sizeof(bfx_area, 0x48);
+
+	struct bfx_area_edge
+	{
+		std::uint64_t neighbor; // area offset from the layer start, 0 on a boundary
+		float vertex[3];
+		std::uint32_t flags; // bits 16-31 index (0xFFFF = none)
+		std::uint32_t portal;
+		std::uint32_t unknown_1c;
+	}; assert_sizeof(bfx_area_edge, 0x20);
+
+	struct bfx_kd_tree_header
+	{
+		bfx_box bounds;
+		std::uint32_t node_bytes;
+	}; assert_sizeof(bfx_kd_tree_header, 0x1C);
+
+	struct bfx_kd_tree_split
+	{
+		std::uint32_t info; // bits 28-29: axis, low 28 bits: right child offset from this node
+		float left_max;
+		float right_min;
+	}; assert_sizeof(bfx_kd_tree_split, 0xC);
 
 	struct CTAudRvbPanInfo
 	{
@@ -9029,10 +9314,10 @@ namespace zonetool::iw7
 		PARTICLE_STATE_DEF_FLAG_HAS_ROTATION_3D_CURVE = 0x20,
 		PARTICLE_STATE_DEF_FLAG_HAS_ROTATION_1D_INIT = 0x40,
 		PARTICLE_STATE_DEF_FLAG_HAS_ROTATION_3D_INIT = 0x80, // c
-		PARTICLE_STATE_DEF_FLAG_HAS_VELOCITY_CURVE_LOCAL1 = 0x100,
-		PARTICLE_STATE_DEF_FLAG_HAS_VELOCITY_CURVE_WORLD1 = 0x200,
-		PARTICLE_STATE_DEF_FLAG_HAS_VELOCITY_CURVE_LOCAL2 = 0x400,
-		PARTICLE_STATE_DEF_FLAG_HAS_VELOCITY_CURVE_WORLD2 = 0x800,
+		PARTICLE_STATE_DEF_FLAG_HAS_VELOCITY_CURVE_LOCAL = 0x100,
+		PARTICLE_STATE_DEF_FLAG_HAS_VELOCITY_CURVE_WORLD = 0x200,
+		PARTICLE_STATE_DEF_FLAG_GPU_LIGHTING = 0x400,
+		PARTICLE_STATE_DEF_FLAG_GPU_LIGHTING_ATLAS_1 = 0x800,
 		PARTICLE_STATE_DEF_FLAG_USE_PHYSICS = 0x1000, // c
 		PARTICLE_STATE_DEF_FLAG_MIRROR_TEXTURE_HORIZONTALLY = 0x2000, // c
 		PARTICLE_STATE_DEF_FLAG_MIRROR_TEXTURE_HORIZONTALLY_RANDOM = 0x4000, // c
@@ -9046,14 +9331,11 @@ namespace zonetool::iw7
 
 		PARTICLE_STATE_DEF_FLAG_HAS_COLOR = 0x400000,
 		PARTICLE_STATE_DEF_FLAG_HAS_RAY_CAST_PHYSICS = 0x800000,
-		PARTICLE_STATE_DEF_FLAG_0x1000000 = 0x1000000,
-
-		PARTICLE_STATE_DEF_FLAG_HAS_EMISSIVE_CURVE = 0x2000000, // c
-		PARTICLE_STATE_DEF_FLAG_HAS_INTENSITY_CURVE = 0x4000000,
+		PARTICLE_STATE_DEF_FLAG_HAS_EMISSIVE_CURVE = 0x1000000,
+		PARTICLE_STATE_DEF_FLAG_HAS_INTENSITY_CURVE = 0x2000000,
 		PARTICLE_STATE_DEF_FLAG_USE_VECTOR_FIELDS = 0x8000000,
 		PARTICLE_STATE_DEF_FLAG_INHERIT_PARENT_VELOCITY = 0x10000000,
-		PARTICLE_STATE_DEF_FLAG_DRAW_WITH_VIEW_MODEL = 0x20000000,
-		PARTICLE_STATE_DEF_FLAG_PLAY_SOUNDS = 0x40000000,
+		PARTICLE_STATE_DEF_FLAG_PLAY_SOUNDS = 0x20000000,
 		PARTICLE_STATE_DEF_FLAG_HAS_CAMERA_OFFSET_POSITION_ONLY = 0x40000000, // c
 		PARTICLE_STATE_DEF_FLAG_ON_IMPACT_USE_SURFACE_TYPE = 0x80000000,
 		PARTICLE_STATE_DEF_FLAG_IS_SPRITE = 0x100000000, // c

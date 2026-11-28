@@ -29,14 +29,17 @@ namespace csv_generator
 		std::unordered_set<std::string> parse_fx_gsc(const std::string& data)
 		{
 			std::unordered_set<std::string> effects;
-			std::regex pattern("loadfx\\s*\\(\\s*\"([^\"]+)\"\\s*\\);", std::regex_constants::icase);
+			std::regex pattern("^\\s*(?!//).*loadfx\\s*\\(\\s*\"([^\"]+)\"\\s*\\);", std::regex_constants::icase);
 			std::smatch matches;
 
-			auto search_start = data.cbegin();
-			while (std::regex_search(search_start, data.cend(), matches, pattern))
+			std::istringstream stream(data);
+			std::string line;
+			while (std::getline(stream, line))
 			{
-				effects.insert(matches[1].str());
-				search_start = matches.suffix().first;
+				if (std::regex_search(line, matches, pattern))
+				{
+					effects.insert(matches[1].str());
+				}
 			}
 
 			return effects;
@@ -134,11 +137,23 @@ namespace csv_generator
 				"anm", "fxt", "acl", "lui", "lsr"
 			};
 
+			const char* ncs_arr_iw7[] = {
+				"vsn", "tgt", "ges", "sut", "lui", "acl", "anm", "hnt", "wep", "mic", "nps", "sic",
+				"hic", "tag", "shk", "loc", "vfx", "efx", "veh", "rmg", "rmb", "mat", "mdl"
+			};
+
 			add_line("// netconststrings");
 
 			if (game == game::game_mode::h1)
 			{
 				for (const auto& str : ncs_arr_h1)
+				{
+					add_asset("netconststrings", utils::string::va("ncs_%s_level", str));
+				}
+			}
+			else if (game == game::game_mode::iw7)
+			{
+				for (const auto& str : ncs_arr_iw7)
 				{
 					add_asset("netconststrings", utils::string::va("ncs_%s_level", str));
 				}
@@ -223,7 +238,10 @@ namespace csv_generator
 			const auto effects = parse_fx_gsc(data);
 			for (const auto& effect : effects)
 			{
-				add_asset("fx", effect);
+				if (!file_exists("particlesystem/vfx/" + effect + ".iw7VFX"))
+				{
+					add_asset("fx", effect);
+				}
 			}
 
 			add_line("");
@@ -246,7 +264,7 @@ namespace csv_generator
 		};
 
 		const auto add_iterator = [&](const std::string& type, const std::string& folder,
-			const std::string& extension, const std::string& comment, bool path = true)
+			const std::string& extension, const std::string& comment, bool path = true, bool recursive = false)
 		{
 			auto added_comment = false;
 			std::unordered_set<std::string> added_names;
@@ -258,7 +276,7 @@ namespace csv_generator
 					continue;
 				}
 
-				const auto files = utils::io::list_files(folder_);
+				const auto files = utils::io::list_files(folder_, recursive);
 				for (const auto& file : files)
 				{
 					if (!file.ends_with(extension))
@@ -311,6 +329,7 @@ namespace csv_generator
 		add_iterator("clut", "clut/", ".clut", "// color lookup tables", false);
 		add_iterator("rawfile", "vision/", ".vision", "// visions");
 		add_iterator("rawfile", "sun/", ".sun", "// sun");
+		add_iterator("vfx", "particlesystem/", ".iw7VFX", "// particle systems", false, true);
 
 		const auto add_gsc = [&](const std::string& path)
 		{
@@ -344,6 +363,12 @@ namespace csv_generator
 		add_gsc(utils::string::va("maps/createart/%s_art.gsc", map.data()));
 		add_gsc(utils::string::va("maps/createart/%s_fog.gsc", map.data()));
 		add_gsc(utils::string::va("maps/createart/%s_fog_hdr.gsc", map.data()));
+
+		const std::string level_script = utils::string::va("scripts/mp/maps/%s/%s", map.data(), map.data());
+		if (game == game::game_mode::iw7 && file_exists(level_script + ".gscbin"))
+		{
+			add_asset("scriptfile", level_script);
+		}
 		add_line("");
 
 		ZONETOOL_INFO("Adding map assets...");
@@ -356,7 +381,7 @@ namespace csv_generator
 		add_map_asset("glass_map", ".glassmap");
 		add_map_asset("phys_worldmap", ".physmap");
 		add_map_asset("aipaths", ".aipaths");
-		add_map_asset(is_sp ? "col_map_sp" : "col_map_mp", ".colmap");
+		add_map_asset(game == game::game_mode::iw7 ? "col_map" : is_sp ? "col_map_sp" : "col_map_mp", ".colmap");
 		add_line("");
 
 		const auto csv_path = "zone_source/" + map + ".csv";

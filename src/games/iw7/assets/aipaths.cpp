@@ -89,18 +89,22 @@ namespace zonetool::iw7
 		return std::sqrtf((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]));
 	}
 
-	pathnode_tree_t* allocate_tree(PathData* asset, zone_memory* mem)
+	float distance_3d(float* a, float* b)
 	{
-		++asset->nodeTreeCount;
-		return mem->allocate<pathnode_tree_t>();
+		return std::sqrtf((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
 	}
 
-	pathnode_tree_t* build_node_tree(PathData* asset, zone_memory* mem, 
+	pathnode_tree_t* allocate_tree(PathData* asset)
+	{
+		return &asset->nodeTree[asset->nodeTreeCount++];
+	}
+
+	pathnode_tree_t* build_node_tree(PathData* asset,
 		unsigned short* node_indexes, unsigned int num_nodes)
 	{
 		if (num_nodes < 4)
 		{
-			const auto result = allocate_tree(asset, mem);
+			const auto result = allocate_tree(asset);
 			result->axis = -1;
 			result->u.s.nodeCount = num_nodes;
 			result->u.s.nodes = node_indexes;
@@ -177,19 +181,16 @@ namespace zonetool::iw7
 				--left;
 			}
 
-			pathnode_tree_t* child[2]{};
-			child[0] = build_node_tree(asset, mem, node_indexes, left);
-			child[1] = build_node_tree(asset, mem, &node_indexes[left], num_nodes - left);
-			const auto result = allocate_tree(asset, mem);
+			const auto result = allocate_tree(asset);
 			result->axis = axis;
 			result->dist = dist;
-			result->u.child[0] = child[0];
-			result->u.child[1] = child[1];
+			result->u.child[0] = build_node_tree(asset, node_indexes, left);
+			result->u.child[1] = build_node_tree(asset, &node_indexes[left], num_nodes - left);
 			return result;
 		}
 		else
 		{
-			const auto result = allocate_tree(asset, mem);
+			const auto result = allocate_tree(asset);
 			result->axis = -1;
 			result->u.s.nodeCount = num_nodes;
 			result->u.s.nodes = node_indexes;
@@ -198,8 +199,197 @@ namespace zonetool::iw7
 	}
 
 
-	PathData* parse_from_botwarfare(const std::string& path, 
-		const std::string& name, zone_memory* mem)
+	std::vector<std::uint8_t> group_nodes_into_zones(PathData* asset, int& zone_count)
+	{
+		const auto fixed_count = static_cast<unsigned int>(asset->fixedNodeCount);
+		std::vector<std::uint8_t> node_zones(fixed_count, 0xFF);
+		zone_count = 0;
+
+		for (auto seed = 0u; seed < fixed_count; seed++)
+		{
+			const auto seed_node = &asset->nodes[seed].constant;
+			if (node_zones[seed] != 0xFF || !seed_node->totalLinkCount)
+			{
+				continue;
+			}
+
+			if (zone_count == 0xFF)
+			{
+				ZONETOOL_WARNING("aipaths \"%s\" has more than 255 zones, nodes left without zone", asset->name);
+				break;
+			}
+
+			std::vector<unsigned int> queue{ seed };
+			node_zones[seed] = static_cast<std::uint8_t>(zone_count);
+
+			for (auto next = 0u; next < queue.size(); next++)
+			{
+				const auto node = &asset->nodes[queue[next]].constant;
+				for (auto o = 0; o < node->totalLinkCount; o++)
+				{
+					const auto linked_num = node->Links[o].nodeNum;
+					const auto linked = &asset->nodes[linked_num].constant;
+					if (node_zones[linked_num] != 0xFF || !linked->totalLinkCount ||
+						distance(seed_node->vLocalOrigin, linked->vLocalOrigin) > 384.f)
+					{
+						continue;
+					}
+
+					node_zones[linked_num] = static_cast<std::uint8_t>(zone_count);
+					queue.push_back(linked_num);
+				}
+			}
+
+			zone_count++;
+		}
+
+		return node_zones;
+	}
+
+	void build_zones(PathData* asset, zone_memory* mem)
+	{
+		int zone_count{};
+		const auto node_zones = group_nodes_into_zones(asset, zone_count);
+
+		const auto fixed_count = static_cast<unsigned int>(asset->fixedNodeCount);
+		const auto first_zone_node = fixed_count + asset->maxDynamicSpawnedNodeCount;
+		const auto node_count = first_zone_node + zone_count;
+
+		const auto nodes = mem->allocate<pathnode_t>(node_count);
+		std::memcpy(nodes, asset->nodes, sizeof(pathnode_t) * fixed_count);
+		asset->nodes = nodes;
+		asset->nodeCount = node_count;
+
+		std::vector<std::vector<unsigned int>> zone_members(zone_count);
+		std::vector<std::set<int>> zone_neighbors(zone_count);
+		for (auto i = 0u; i < fixed_count; i++)
+		{
+			if (node_zones[i] == 0xFF)
+			{
+				continue;
+			}
+
+			zone_members[node_zones[i]].push_back(i);
+
+			const auto node = &nodes[i].constant;
+			for (auto o = 0; o < node->totalLinkCount; o++)
+			{
+				const auto linked_zone = node_zones[node->Links[o].nodeNum];
+				if (linked_zone != 0xFF && linked_zone != node_zones[i])
+				{
+					zone_neighbors[node_zones[i]].insert(linked_zone);
+					zone_neighbors[linked_zone].insert(node_zones[i]);
+				}
+			}
+		}
+
+		for (auto zone = 0; zone < zone_count; zone++)
+		{
+			vec3_t center{};
+			for (const auto member : zone_members[zone])
+			{
+				for (auto axis = 0; axis < 3; axis++)
+				{
+					center[axis] += nodes[member].constant.vLocalOrigin[axis] / zone_members[zone].size();
+				}
+			}
+
+			const auto center_member = *std::min_element(zone_members[zone].begin(), zone_members[zone].end(),
+				[&](const unsigned int a, const unsigned int b)
+			{
+				return distance(nodes[a].constant.vLocalOrigin, center) < distance(nodes[b].constant.vLocalOrigin, center);
+			});
+
+			const auto zone_node = &nodes[first_zone_node + zone].constant;
+			zone_node->type = NODE_ERROR;
+			zone_node->wOverlapNode[0] = 0xFFFF;
+			zone_node->wOverlapNode[1] = 0xFFFF;
+			std::memcpy(zone_node->vLocalOrigin, nodes[center_member].constant.vLocalOrigin, sizeof(vec3_t));
+		}
+
+		for (auto zone = 0; zone < zone_count; zone++)
+		{
+			const auto zone_node = &nodes[first_zone_node + zone].constant;
+			zone_node->totalLinkCount = static_cast<unsigned short>(zone_neighbors[zone].size());
+			zone_node->Links = mem->allocate<pathlink_s>(zone_node->totalLinkCount);
+
+			auto link = zone_node->Links;
+			for (const auto neighbor : zone_neighbors[zone])
+			{
+				const auto neighbor_node = &nodes[first_zone_node + neighbor].constant;
+				link->nodeNum = static_cast<unsigned short>(first_zone_node + neighbor);
+				link->fDist = distance_3d(zone_node->vLocalOrigin, neighbor_node->vLocalOrigin);
+				link++;
+			}
+		}
+
+		asset->zoneCount = zone_count;
+		asset->zonesBytes = node_count;
+		asset->pathZones = mem->allocate<char>(node_count);
+		std::memset(asset->pathZones, 0xFF, node_count);
+		std::memcpy(asset->pathZones, node_zones.data(), fixed_count);
+		for (auto zone = 0; zone < zone_count; zone++)
+		{
+			asset->pathZones[first_zone_node + zone] = static_cast<char>(zone);
+		}
+
+		ZONETOOL_INFO("aipaths \"%s\": %d zones", asset->name, zone_count);
+	}
+
+	void add_negotiation_entity(const char* classname, const pathnode_constant_t& node, const char* animscript, const char* target, const char* targetname)
+	{
+		map_ents::add_entity_string("{\n");
+		map_ents::add_entity_string(utils::string::va("157 \"%s\"\n", classname)); // classname
+		map_ents::add_entity_string(utils::string::va("543 \"%f %f %f\"\n", node.vLocalOrigin[0], node.vLocalOrigin[1], node.vLocalOrigin[2])); // origin
+		map_ents::add_entity_string(utils::string::va("65 \"0 %f 0\"\n", node.orientation.angles[1])); // angles
+		if (animscript)
+		{
+			map_ents::add_entity_string(utils::string::va("72 \"%s\"\n", animscript)); // animscript
+		}
+		if (target)
+		{
+			map_ents::add_entity_string(utils::string::va("820 \"%s\"\n", target)); // target
+		}
+		map_ents::add_entity_string(utils::string::va("822 \"%s\"\n", targetname)); // targetname
+		map_ents::add_entity_string("}\n");
+	}
+
+	void path_data::add_negotiation_nodes(PathData* asset, nav_mesh& navmesh, NavMeshData* navmesh_data, unsigned int first_node, zone_memory* mem)
+	{
+		for (auto i = 0; i < navmesh_data->numLinkCreationData; i++)
+		{
+			auto& link = navmesh_data->linkCreationData[i];
+			const auto animscript = navmesh.get_script_string(&link.m_Animscript);
+			const auto target = navmesh.get_script_string(&link.m_Target);
+
+			auto& begin = asset->nodes[first_node + i * 2].constant;
+			auto& end = asset->nodes[first_node + i * 2 + 1].constant;
+			std::memcpy(begin.vLocalOrigin, link.m_Start.m_Pt1, sizeof(begin.vLocalOrigin));
+			std::memcpy(end.vLocalOrigin, link.m_End.m_Pt1, sizeof(end.vLocalOrigin));
+
+			const auto yaw = std::atan2(end.vLocalOrigin[1] - begin.vLocalOrigin[1], end.vLocalOrigin[0] - begin.vLocalOrigin[0]) * 180.0f / 3.14159265f;
+			begin.orientation.angles[1] = yaw;
+			end.orientation.angles[1] = yaw;
+
+			begin.type = NODE_NEGOTIATION_BEGIN;
+			this->add_script_string(&begin.targetname, "traverse");
+			this->add_script_string(&begin.target, target);
+			this->add_script_string(&begin.animscript, animscript);
+			begin.totalLinkCount = 1;
+			begin.Links = mem->allocate<pathlink_s>(1);
+			begin.Links->nodeNum = static_cast<unsigned short>(first_node + i * 2 + 1);
+			begin.Links->fDist = distance(begin.vLocalOrigin, end.vLocalOrigin);
+			begin.Links->negotiationLink = 1;
+
+			end.type = NODE_NEGOTIATION_END;
+			this->add_script_string(&end.targetname, target);
+
+			add_negotiation_entity("node_negotiation_begin", begin, animscript, target, "traverse");
+			add_negotiation_entity("node_negotiation_end", end, nullptr, nullptr, target);
+		}
+	}
+
+	PathData* path_data::parse_botwarfare(const std::string& path, zone_memory* mem)
 	{
 		auto file = filesystem::file(path);
 		file.open("rb");
@@ -213,7 +403,7 @@ namespace zonetool::iw7
 
 		auto table = csv::parser(filesystem::get_file_path(path) + path);
 		const auto asset = mem->allocate<PathData>();
-		asset->name = mem->duplicate_string(name);
+		asset->name = mem->duplicate_string(this->name_);
 
 		if (table.get_num_rows() <= 0)
 		{
@@ -221,15 +411,33 @@ namespace zonetool::iw7
 		}
 
 		const auto rows = table.get_rows();
-		asset->nodeCount = std::atoi(rows[0]->fields[0]);
-		asset->nodes = mem->allocate<pathnode_t>(asset->nodeCount);
+		const auto waypoint_count = static_cast<unsigned int>(std::atoi(rows[0]->fields[0]));
 
-		if (table.get_num_rows() < static_cast<int>(asset->nodeCount))
+		if (table.get_num_rows() < static_cast<int>(waypoint_count))
 		{
-			ZONETOOL_FATAL("Less than asset->nodeCount + 1 (%i) rows", asset->nodeCount);
+			ZONETOOL_FATAL("Less than waypoint count + 1 (%i) rows", waypoint_count);
 		}
 
+		nav_mesh navmesh;
+		NavMeshData* navmesh_data = nullptr;
+		if (path.ends_with("_wp.csv"))
+		{
+			navmesh_data = navmesh.parse("maps/mp/"s + path.substr(0, path.size() - 7) + ".d3dbsp", mem);
+		}
+		const auto negotiation_count = navmesh_data ? static_cast<unsigned int>(navmesh_data->numLinkCreationData) * 2 : 0u;
+
+		asset->version = 22;
+		asset->fixedNodeCount = waypoint_count + negotiation_count;
+		asset->maxDynamicSpawnedNodeCount = 64;
+		asset->nodeCount = asset->fixedNodeCount + asset->maxDynamicSpawnedNodeCount;
+		asset->nodes = mem->allocate<pathnode_t>(asset->nodeCount);
 		for (auto i = 0u; i < asset->nodeCount; i++)
+		{
+			asset->nodes[i].constant.wOverlapNode[0] = 0xFFFF;
+			asset->nodes[i].constant.wOverlapNode[1] = 0xFFFF;
+		}
+
+		for (auto i = 0u; i < waypoint_count; i++)
 		{
 			const auto row = rows[i + 1];
 			const auto node = &asset->nodes[i];
@@ -262,13 +470,13 @@ namespace zonetool::iw7
 			}
 
 			map_ents::add_entity_string("{\n");
-			map_ents::add_entity_string("\"classname\" \"node_pathnode\"\n");
-			map_ents::add_entity_string(utils::string::va("\"origin\" \"%f %f %f\"\n",
+			map_ents::add_entity_string("157 \"node_pathnode\"\n"); // classname
+			map_ents::add_entity_string(utils::string::va("543 \"%f %f %f\"\n", // origin
 				node->constant.vLocalOrigin[0],
 				node->constant.vLocalOrigin[1],
 				node->constant.vLocalOrigin[2]
 			));
-			map_ents::add_entity_string(utils::string::va("\"angles\" \"%f %f %f\"\n", 
+			map_ents::add_entity_string(utils::string::va("65 \"%f %f %f\"\n", // angles
 				node->constant.orientation.angles[0],
 				node->constant.orientation.angles[1],
 				node->constant.orientation.angles[2]
@@ -285,31 +493,39 @@ namespace zonetool::iw7
 			}
 		}
 
-		for (auto i = 0u; i < asset->nodeCount; i++)
+		for (auto i = 0u; i < waypoint_count; i++)
 		{
 			const auto node = &asset->nodes[i];
 			for (auto o = 0; o < node->constant.totalLinkCount; o++)
 			{
 				const auto linked_num = node->constant.Links[o].nodeNum;
-				if (linked_num >= asset->nodeCount)
+				if (linked_num >= waypoint_count)
 				{
 					ZONETOOL_FATAL("Node link num out of bounds");
 				}
 
 				const auto linked = &asset->nodes[linked_num];
-				node->constant.Links[o].negotiationLink = 1;
-				node->constant.Links[o].fDist = 
+				node->constant.Links[o].fDist =
 					distance(node->constant.vLocalOrigin, linked->constant.vLocalOrigin);
 			}
 		}
 
-		const auto node_indexes = mem->allocate<unsigned short>(asset->nodeCount);
-		for (auto i = 0u; i < asset->nodeCount; i++)
+		if (navmesh_data)
+		{
+			this->add_negotiation_nodes(asset, navmesh, navmesh_data, waypoint_count, mem);
+		}
+
+		const auto fixed_count = static_cast<unsigned int>(asset->fixedNodeCount);
+		const auto node_indexes = mem->allocate<unsigned short>(fixed_count);
+		for (auto i = 0u; i < fixed_count; i++)
 		{
 			node_indexes[i] = static_cast<unsigned short>(i);
 		}
 
-		asset->nodeTree = build_node_tree(asset, mem, node_indexes, asset->nodeCount);
+		asset->nodeTree = mem->allocate<pathnode_tree_t>(2 * fixed_count);
+		build_node_tree(asset, node_indexes, fixed_count);
+
+		build_zones(asset, mem);
 
 		return asset;
 	}
@@ -376,7 +592,7 @@ namespace zonetool::iw7
 	void path_data::init(const std::string& name, zone_memory* mem)
 	{
 		this->name_ = name;
-		this->asset_ = parse_from_botwarfare(name, this->name_, mem);
+		this->asset_ = this->parse_botwarfare(name, mem);
 		if (this->asset_)
 		{
 			return;
