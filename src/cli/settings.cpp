@@ -151,7 +151,19 @@ namespace zonetool::cli
 
 	std::filesystem::path settings::zone_folder() const
 	{
-		return this->game_path / "zone";
+		const auto folder = this->game_path / "zone";
+		if (!std::filesystem::is_directory(folder) && std::filesystem::is_directory(this->game_path))
+		{
+			for (const auto& entry : std::filesystem::directory_iterator(this->game_path))
+			{
+				if (entry.is_regular_file() && entry.path().extension() == ".ff")
+				{
+					return this->game_path;
+				}
+			}
+		}
+
+		return folder;
 	}
 
 	std::filesystem::path settings::game_folder(const zonetool::game& target_game) const
