@@ -31,6 +31,38 @@ namespace zonetool::iw7
 			namespace
 			{
 				constexpr unsigned char NO_LIGHTMAP = 0xFF; // TODO verify against H1 behaviour
+
+				bool is_layered_material(const Material* material)
+				{
+					return material && material->name && material->name[0] == '*';
+				}
+
+				unsigned int clear_layer_blend_colors(const GfxWorld* asset, zonetool::h1::GfxWorld* new_asset, const std::vector<unsigned int>& vertex_base)
+				{
+					const unsigned int zone_count = static_cast<unsigned int>(vertex_base.size()) - 1;
+					unsigned int cleared = 0;
+					for (unsigned int i = 0; i < asset->surfaceCount; i++)
+					{
+						const auto& surface = asset->dpvs.surfaces[i];
+						if (!is_layered_material(surface.material) || surface.transientZone >= zone_count)
+						{
+							continue;
+						}
+
+						const unsigned int first_index = surface.tris.baseIndex;
+						const unsigned int index_count = surface.tris.triCount * 3u;
+						for (unsigned int k = first_index; k < first_index + index_count && k < asset->draw.indexCount; k++)
+						{
+							const unsigned int vertex = vertex_base[surface.transientZone] + surface.tris.firstVertex + asset->draw.indices[k];
+							if (vertex < new_asset->draw.vertexCount && new_asset->draw.vd.vertices[vertex].color.packed != 0xFFFFFFFF)
+							{
+								new_asset->draw.vd.vertices[vertex].color.packed = 0xFFFFFFFF;
+								cleared++;
+							}
+						}
+					}
+					return cleared;
+				}
 			}
 
 			zonetool::h1::GfxWorld* convert(GfxWorld* asset, utils::memory::allocator& allocator)
@@ -524,6 +556,12 @@ namespace zonetool::iw7
 
 				COPY_VALUE(draw.indexCount);
 				REINTERPRET_CAST_SAFE(draw.indices);
+
+				if (asset->draw.indices && asset->dpvs.surfaces)
+				{
+					const auto cleared = clear_layer_blend_colors(asset, new_asset, vertex_base);
+					ZONETOOL_WARNING("gfxworld %s: %u vertex colours of layered materials (IW7 layer blend weights) set to white, layer blending is lost", asset->name, cleared);
+				}
 				new_asset->draw.displacementParmsCount = 0;
 				new_asset->draw.displacementParms = nullptr;
 
