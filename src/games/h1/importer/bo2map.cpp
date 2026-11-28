@@ -1698,6 +1698,13 @@ namespace zonetool::h1::importer
 				}
 
 				d.surfaceCastsSunShadow = allocator.allocate_array<unsigned int>(vis_words);
+				for (unsigned int p = 0; p < surface_count; p++)
+				{
+					if (d.surfaces[p].laf.fields.flags & zonetool::h1::GFX_SURFACE_CASTS_SUN_SHADOW)
+					{
+						d.surfaceCastsSunShadow[p >> 5] |= 1u << (p & 31);
+					}
+				}
 				d.sunShadowOptCount = 0;
 				d.sunSurfVisDataCount = 0;
 				d.surfaceCastsSunShadowOpt = nullptr;
