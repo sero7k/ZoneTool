@@ -149,6 +149,8 @@ namespace zonetool::iw6
 				{"common" + suffix, map_zone_dump::referenced},
 				{"patch_common" + suffix, map_zone_dump::referenced},
 				{"techsets_common_core_mp", map_zone_dump::referenced},
+				{"common_core_mp", map_zone_dump::referenced},
+				{"common_core_dlc_updated_mp", map_zone_dump::referenced},
 				{"techsets_" + map, map_zone_dump::all},
 				{"eng_" + map, map_zone_dump::all},
 				{map + "_path", map_zone_dump::all},
