@@ -1665,11 +1665,10 @@ namespace zonetool::h1::importer
 						? static_cast<unsigned char>(zonetool::h1::GFX_SURFACE_CASTS_SUN_SHADOW) : 0;
 					{
 						// An ocean surface (our sea or a map ocean material) is set up like the stock H1 ocean
-						// (mp_bog_summer): primary light env 0, surface flag 4.
+						// (mp_bog_summer): the sun light env, surface flag 4.
 						const std::string& mn = in.materials[s.material].h1_name;
 						if (mn.find("ocean") != std::string::npos || (mn.size() >= 4 && mn.compare(mn.size() - 4, 4, "_sea") == 0))
 						{
-							dst.laf.fields.primaryLightEnvIndex = 0;
 							dst.laf.fields.flags = 4;
 						}
 					}
